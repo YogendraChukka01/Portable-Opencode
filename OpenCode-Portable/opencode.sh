@@ -62,10 +62,24 @@ NODE_BIN="$ENGINE_DIR/bin/node"
 NPM_CMD="$ENGINE_DIR/bin/npm"
 
 APP_DIR="$ROOT/opt/opencode-linux"
-# Real compiled binary (fast path). Falls back to the npm shim below
-# if a future opencode-ai release changes its package layout.
-OPENCODE_NATIVE_GLOB="$APP_DIR/node_modules/opencode-ai/node_modules/opencode-linux-${OC_ARCH}/bin/opencode"
-OPENCODE_SHIM="$APP_DIR/node_modules/.bin/opencode"
+
+# Locate the compiled OpenCode binary anywhere under the installed npm
+# tree. npm hoists platform packages (opencode-linux-<arch>) to the
+# top-level node_modules, but older layouts nested them under
+# opencode-ai/node_modules, and --no-bin-links means the .bin shim is
+# absent -- so we search rather than trust a single hard-coded path.
+locate_opencode() {
+    local cand
+    for cand in \
+        "$APP_DIR/node_modules/opencode-ai/node_modules/opencode-linux-${OC_ARCH}/bin/opencode" \
+        "$APP_DIR/node_modules/opencode-linux-${OC_ARCH}/bin/opencode" \
+        "$APP_DIR/node_modules/opencode-ai/bin/opencode.exe" \
+        "$APP_DIR/node_modules/.bin/opencode" ; do
+        [ -x "$cand" ] && { printf '%s' "$cand"; return 0; }
+    done
+    # Last resort: find any matching platform binary in the tree.
+    find "$APP_DIR/node_modules" -type f -path "*/opencode-linux-${OC_ARCH}/bin/opencode" 2>/dev/null | head -1
+}
 
 DATA_DIR="$ROOT/data/linux"
 HOME_DIR="$DATA_DIR/home"
@@ -198,6 +212,10 @@ if [ ! -x "$NODE_BIN" ]; then
     tar -xf "$TMP_TAR" -C "$TMP_EXTRACT"
     INNER="$(find "$TMP_EXTRACT" -mindepth 1 -maxdepth 1 -type d | head -1)"
     rm -rf "$ENGINE_DIR"
+    # `mv` won't create intermediate directories, so make sure the
+    # parent (engine/) exists before moving the extracted node folder
+    # into it. This matters on a first run where nothing is set up yet.
+    mkdir -p "$(dirname "$ENGINE_DIR")"
     mv "$INNER" "$ENGINE_DIR"
     rm -rf "$TMP_TAR" "$TMP_EXTRACT" "$INDEX_JSON" "$SHASUMS"
     echo "      Done."
@@ -208,7 +226,7 @@ fi
 # --------------------------------------------------------------
 # STEP 2 - OpenCode itself (only installed once, onto the drive)
 # --------------------------------------------------------------
-if [ ! -x "$OPENCODE_NATIVE_GLOB" ] && [ ! -x "$OPENCODE_SHIM" ]; then
+if [ -z "$(locate_opencode)" ]; then
     echo "[2/3] OpenCode is not yet installed. Installing from npm now..."
     export PATH="$ENGINE_DIR/bin:$PATH"
     export npm_config_cache="$NPMCACHE_DIR"
@@ -216,7 +234,7 @@ if [ ! -x "$OPENCODE_NATIVE_GLOB" ] && [ ! -x "$OPENCODE_SHIM" ]; then
     # the real compiled binary ourselves (see below), so we don't need it,
     # and skipping it avoids a class of symlink/shim permission issues.
     "$NPM_CMD" install opencode-ai --prefix "$APP_DIR" --no-fund --no-audit --no-bin-links --loglevel=error
-    if [ ! -x "$OPENCODE_NATIVE_GLOB" ] && [ ! -x "$OPENCODE_SHIM" ]; then
+    if [ -z "$(locate_opencode)" ]; then
         echo
         echo "ERROR: OpenCode installation failed. Check your internet connection and try again."
         exit 1
@@ -226,13 +244,10 @@ else
     echo "[2/3] OpenCode already installed. OK."
 fi
 
-# Prefer the real compiled binary; fall back to the npm shim if the
-# upstream package layout ever changes underneath us.
-if [ -x "$OPENCODE_NATIVE_GLOB" ]; then
-    OPENCODE_BIN="$OPENCODE_NATIVE_GLOB"
-elif [ -x "$OPENCODE_SHIM" ]; then
-    OPENCODE_BIN="$OPENCODE_SHIM"
-else
+# Resolve the real compiled binary (npm may hoist it to the top-level
+# node_modules or nest it under opencode-ai -- locate_opencode handles both).
+OPENCODE_BIN="$(locate_opencode)"
+if [ -z "$OPENCODE_BIN" ]; then
     echo "ERROR: could not locate the OpenCode binary after installation."
     exit 1
 fi

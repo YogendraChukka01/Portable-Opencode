@@ -4,8 +4,11 @@
 # This .gitignore is designed for a portable USB edition of OpenCode.
 # It excludes system junk, IDE files, OS artifacts, Node.js dependencies,
 # downloaded runtimes, installation artifacts, and automatically generated
-# data directories — while keeping only the launcher scripts and
-# documentation in version control.
+# data directories — while keeping only the launcher scripts, documentation,
+# and the directory-template (.gitkeep files) in version control.
+#
+# NOTE: all runtime/install/data paths live under OpenCode-Portable/, so the
+# ignore rules below are prefixed accordingly.
 # =============================================================================
 
 
@@ -14,19 +17,19 @@
 # =============================================================================
 
 # Portable Node.js runtimes downloaded at first launch per OS
-engine/node-win/
-engine/node-linux/
+OpenCode-Portable/engine/node-win/
+OpenCode-Portable/engine/node-linux/
 
 # OpenCode npm installation per OS
-opt/opencode-win/
-opt/opencode-linux/
+OpenCode-Portable/opt/opencode-win/
+OpenCode-Portable/opt/opencode-linux/
 
 # User data and configuration — generated at runtime per OS
-data/win/
-data/linux/
+OpenCode-Portable/data/win/
+OpenCode-Portable/data/linux/
 
 # Any other data, config, or cache directories that may appear
-data/
+OpenCode-Portable/data/
 
 # =============================================================================
 # Node.js / npm
@@ -123,16 +126,12 @@ Session.vim
 *.elc
 auto-save-list
 tramp
-.\#*
 
 # Eclipse
 .project
 .classpath
 .settings/
 *.metadata
-*.tmp
-*.classpath
-*.project
 
 # Sublime Text
 *.sublime-project
@@ -148,11 +147,7 @@ tramp
 *.war
 *.nar
 *.ear
-*.zip
-*.tar.gz
-*.tgz
 *.rar
-*.7z
 *.dmg
 *.pkg
 *.deb
@@ -216,16 +211,9 @@ temp/
 .temp/
 *.tmp
 *.temp
-*.swp
-*.bak
-*.orig
-*.patch
-*.diff
 crash-*.log
 
 # =============================================================================
 # Git
 # =============================================================================
 
-# Keep .gitkeep files to preserve directory structure when needed
-!.gitkeep

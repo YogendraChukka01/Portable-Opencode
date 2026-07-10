@@ -45,11 +45,11 @@ set "NODE_EXE=%NODE_DIR%\node.exe"
 set "NPM_CMD=%NODE_DIR%\npm.cmd"
 
 set "APP_DIR=%ROOT%\opt\opencode-win"
-REM Real compiled binary (fast path, and the only reliable path -- see
-REM note above about the broken npm shim). Falls back to the npm shim
-REM if a future opencode-ai release changes its package layout.
-set "OPENCODE_NATIVE=%APP_DIR%\node_modules\opencode-ai\node_modules\opencode-windows-%ARCH%\bin\opencode.exe"
-set "OPENCODE_SHIM=%APP_DIR%\node_modules\.bin\opencode.cmd"
+REM The real compiled binary lives in the platform package
+REM (opencode-windows-<arch>). npm hoists that package to the top-level
+REM node_modules, but some layouts nest it under opencode-ai/node_modules;
+REM --no-bin-links also means the .bin shim is absent. :LOCATE_OPENCODE
+REM checks the known locations and, failing that, searches the whole tree.
 
 set "DATA_DIR=%ROOT%\data\win"
 set "HOME_DIR=%DATA_DIR%\home"
@@ -95,13 +95,8 @@ if not exist "%NODE_EXE%" (
 REM ------------------------------------------------------------
 REM  STEP 2 - OpenCode itself (only installed once, onto the drive)
 REM ------------------------------------------------------------
-REM (Using a flag variable rather than chaining "if A if B (...) else (...)":
-REM  that chained form does NOT behave as a simple AND-with-else in batch --
-REM  the "else" binds to the inner "if B", so when A is false the whole
-REM  thing silently does nothing instead of running the else branch.)
-set "NEED_INSTALL=0"
-if not exist "%OPENCODE_NATIVE%" if not exist "%OPENCODE_SHIM%" set "NEED_INSTALL=1"
-if "%NEED_INSTALL%"=="1" (
+call :LOCATE_OPENCODE
+if not defined OPENCODE_BIN (
     echo [2/3] OpenCode is not yet installed. Installing from npm now...
     set "PATH=%NODE_DIR%;%PATH%"
     set "npm_config_cache=%NPMCACHE_DIR%"
@@ -118,7 +113,8 @@ if "%NEED_INSTALL%"=="1" (
         echo ERROR: OpenCode installation failed. Check your internet connection and try again.
         goto :END
     )
-    if not exist "%OPENCODE_NATIVE%" if not exist "%OPENCODE_SHIM%" (
+    call :LOCATE_OPENCODE
+    if not defined OPENCODE_BIN (
         echo.
         echo ERROR: OpenCode installation failed. Check your internet connection and try again.
         goto :END
@@ -126,19 +122,6 @@ if "%NEED_INSTALL%"=="1" (
     echo       OpenCode installed successfully.
 ) else (
     echo [2/3] OpenCode already installed. OK.
-)
-
-REM Prefer the real compiled binary; fall back to the npm shim if the
-REM upstream package layout ever changes underneath us.
-if exist "%OPENCODE_NATIVE%" (
-    set "OPENCODE_BIN=%OPENCODE_NATIVE%"
-) else (
-    set "OPENCODE_BIN=%OPENCODE_SHIM%"
-)
-if not exist "!OPENCODE_BIN!" (
-    echo.
-    echo ERROR: could not locate the OpenCode binary after installation.
-    goto :END
 )
 
 REM ------------------------------------------------------------
@@ -235,8 +218,10 @@ set "PS1=%TEMP%\opencode-portable-get-node.ps1"
 >> "%PS1%" echo   Write-Host '       Extracting...'
 >> "%PS1%" echo   if (Test-Path '%TMP_EXTRACT%'^) { Remove-Item '%TMP_EXTRACT%' -Recurse -Force }
 >> "%PS1%" echo   Expand-Archive -Path '%TMP_ZIP%' -DestinationPath '%TMP_EXTRACT%' -Force
->> "%PS1%" echo   $inner = Get-ChildItem '%TMP_EXTRACT%' ^| Select-Object -First 1
+>> "%PS1%" echo   $inner = Get-ChildItem '%TMP_EXTRACT%' -Directory ^| Select-Object -First 1
 >> "%PS1%" echo   if (Test-Path '%NODE_DIR%'^) { Remove-Item '%NODE_DIR%' -Recurse -Force }
+>> "%PS1%" echo   $nodeParent = Split-Path '%NODE_DIR%'
+>> "%PS1%" echo   if (-not (Test-Path $nodeParent^)^) { New-Item -ItemType Directory -Force -Path $nodeParent ^| Out-Null }
 >> "%PS1%" echo   Move-Item $inner.FullName '%NODE_DIR%'
 >> "%PS1%" echo   Remove-Item '%TMP_ZIP%' -Force
 >> "%PS1%" echo   Remove-Item '%TMP_EXTRACT%' -Recurse -Force -ErrorAction SilentlyContinue
@@ -252,6 +237,34 @@ del "%PS1%" >nul 2>&1
 if not "%PSRC%"=="0" (
     exit /b 1
 )
+exit /b 0
+
+REM ==============================================================
+:LOCATE_OPENCODE
+REM Finds the compiled OpenCode binary and stores it in OPENCODE_BIN.
+REM npm hoists the platform package (opencode-windows-<arch>) to the
+REM top-level node_modules, but some layouts nest it under
+REM opencode-ai/node_modules; --no-bin-links also means the .bin shim
+REM is absent -- so we check the known locations and, failing that,
+REM search the whole tree.
+set "OPENCODE_BIN="
+if exist "%APP_DIR%\node_modules\opencode-ai\node_modules\opencode-windows-%ARCH%\bin\opencode.exe" (
+    set "OPENCODE_BIN=%APP_DIR%\node_modules\opencode-ai\node_modules\opencode-windows-%ARCH%\bin\opencode.exe"
+    goto :LOCATE_DONE
+)
+if exist "%APP_DIR%\node_modules\opencode-windows-%ARCH%\bin\opencode.exe" (
+    set "OPENCODE_BIN=%APP_DIR%\node_modules\opencode-windows-%ARCH%\bin\opencode.exe"
+    goto :LOCATE_DONE
+)
+if exist "%APP_DIR%\node_modules\opencode-ai\bin\opencode.exe" (
+    set "OPENCODE_BIN=%APP_DIR%\node_modules\opencode-ai\bin\opencode.exe"
+    goto :LOCATE_DONE
+)
+for /f "delims=" %%F in ('dir /s /b "%APP_DIR%\node_modules\opencode-windows-%ARCH%\bin\opencode.exe" 2^>nul') do (
+    set "OPENCODE_BIN=%%F"
+    goto :LOCATE_DONE
+)
+:LOCATE_DONE
 exit /b 0
 
 :END
