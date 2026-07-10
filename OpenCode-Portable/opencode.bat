@@ -226,7 +226,7 @@ set "PS1=%TEMP%\opencode-portable-get-node.ps1"
 >> "%PS1%" echo   Remove-Item '%TMP_ZIP%' -Force
 >> "%PS1%" echo   Remove-Item '%TMP_EXTRACT%' -Recurse -Force -ErrorAction SilentlyContinue
 >> "%PS1%" echo } catch {
->> "%PS1%" echo   Write-Host "ERROR: $($_.Exception.Message^)"
+>> "%PS1%" echo   Write-Host ("ERROR: " + $_.Exception.Message)
 >> "%PS1%" echo   exit 1
 >> "%PS1%" echo }
 
