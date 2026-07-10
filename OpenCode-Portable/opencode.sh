@@ -34,7 +34,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # 40 lines deep into a download.
 # --------------------------------------------------------------
 missing=()
-for cmd in curl tar; do
+for cmd in curl tar openssl; do
     command -v "$cmd" >/dev/null 2>&1 || missing+=("$cmd")
 done
 if [ "${#missing[@]}" -gt 0 ]; then
@@ -79,6 +79,68 @@ locate_opencode() {
     done
     # Last resort: find any matching platform binary in the tree.
     find "$APP_DIR/node_modules" -type f -path "*/opencode-linux-${OC_ARCH}/bin/opencode" 2>/dev/null | head -1
+}
+
+# --------------------------------------------------------------
+# Verify a downloaded tarball against an npm "Subresource Integrity"
+# (SRI) string (e.g. "sha512-<base64>"). This is the exact same
+# integrity scheme npm uses to validate every package it installs, so
+# we fail fast on corruption/tampering before handing the bytes to npm.
+# --------------------------------------------------------------
+verify_sri() {
+    local file="$1" sri="$2"
+    local alg="${sri%%-*}" expect_b64="${sri#*-}" actual
+    case "$alg" in
+        sha512) actual="$(openssl dgst -sha512 -binary "$file" | openssl base64 -A)" ;;
+        sha256) actual="$(openssl dgst -sha256 -binary "$file" | openssl base64 -A)" ;;
+        *) echo "ERROR: unsupported integrity algorithm '$alg'."; return 1 ;;
+    esac
+    [ "$actual" = "$expect_b64" ]
+}
+
+# --------------------------------------------------------------
+# Resolve the exact OpenCode package version from the npm registry,
+# download its tarball, and verify its SHA-512 SRI. The OpenCode
+# version can be pinned for reproducibility via $OPENCODE_VERSION
+# (e.g. OPENCODE_VERSION=1.2.3 ./opencode.sh); otherwise "latest" is
+# used. The verified tarball is then installed locally by npm (which
+# re-verifies it), keeping the install deterministic and tamper-evident.
+# --------------------------------------------------------------
+resolve_opencode() {
+    local pkg="opencode-linux-${OC_ARCH}"
+    local ver_spec="${OPENCODE_VERSION:-latest}"
+    local meta tgz
+    OPENCODE_TGZ=""
+    if ! meta="$(curl -fsSL "https://registry.npmjs.org/${pkg}/${ver_spec}")"; then
+        echo "ERROR: could not reach the npm registry to resolve ${pkg}@${ver_spec}."
+        return 1
+    fi
+    OPENCODE_VER="$(printf '%s' "$meta" | grep -o '"version":"[^"]*"' | head -1 | sed -E 's/"version":"([^"]*)"/\1/')"
+    local integrity tarball
+    integrity="$(printf '%s' "$meta" | grep -o '"integrity":"[^"]*"' | head -1 | sed -E 's/"integrity":"([^"]*)"/\1/')"
+    tarball="$(printf '%s' "$meta" | grep -o '"tarball":"[^"]*"' | head -1 | sed -E 's/"tarball":"([^"]*)"/\1/')"
+    if [ -z "$OPENCODE_VER" ] || [ -z "$tarball" ]; then
+        echo "ERROR: could not parse OpenCode package metadata from the npm registry."
+        return 1
+    fi
+    echo "      Resolved OpenCode $OPENCODE_VER ($OC_ARCH) ..."
+    tgz="$TEMP_DIR/opencode-${OPENCODE_VER}.tgz"
+    if [ ! -f "$tgz" ] || ! verify_sri "$tgz" "$integrity" 2>/dev/null; then
+        curl -fsSL "$tarball" -o "$tgz"
+    fi
+    if [ -n "$integrity" ]; then
+        echo "      Verifying package integrity (SHA-512) ..."
+        if ! verify_sri "$tgz" "$integrity"; then
+            echo "ERROR: OpenCode package tarball integrity mismatch -- possible corruption or tampering. Aborting."
+            rm -f "$tgz"
+            return 1
+        fi
+        echo "      Integrity OK."
+    else
+        echo "WARNING: no integrity info in registry metadata; skipping verification."
+    fi
+    OPENCODE_TGZ="$tgz"
+    return 0
 }
 
 DATA_DIR="$ROOT/data/linux"
@@ -227,7 +289,7 @@ fi
 # STEP 2 - OpenCode itself (only installed once, onto the drive)
 # --------------------------------------------------------------
 if [ -z "$(locate_opencode)" ]; then
-    echo "[2/3] OpenCode is not yet installed. Installing from npm now..."
+    echo "[2/3] OpenCode is not yet installed. Resolving + verifying package now..."
     export PATH="$ENGINE_DIR/bin:$PATH"
     export npm_config_cache="$NPMCACHE_DIR"
     # Install only the platform-specific OpenCode package directly instead
@@ -239,13 +301,20 @@ if [ -z "$(locate_opencode)" ]; then
     # --no-bin-links: skip npm's generated .bin/opencode wrapper. We call
     # the real compiled binary ourselves (see below), so we don't need it,
     # and skipping it avoids a class of symlink/shim permission issues.
-    "$NPM_CMD" install "opencode-linux-${OC_ARCH}" --prefix "$APP_DIR" --no-fund --no-audit --no-bin-links --loglevel=error
+    # The tarball is first resolved from the registry and verified against
+    # its published SHA-512 integrity (see resolve_opencode) so the install
+    # is deterministic (pin via $OPENCODE_VERSION) and tamper-evident.
+    if ! resolve_opencode; then
+        exit 1
+    fi
+    "$NPM_CMD" install "$OPENCODE_TGZ" --prefix "$APP_DIR" --no-fund --no-audit --no-bin-links --loglevel=error
+    printf '%s\n' "$OPENCODE_VER" > "$APP_DIR/OPENCODE_VERSION"
     if [ -z "$(locate_opencode)" ]; then
         echo
         echo "ERROR: OpenCode installation failed. Check your internet connection and try again."
         exit 1
     fi
-    echo "      OpenCode installed successfully."
+    echo "      OpenCode $OPENCODE_VER installed successfully."
 else
     echo "[2/3] OpenCode already installed. OK."
 fi
@@ -272,11 +341,12 @@ export XDG_CONFIG_HOME="$CONFIG_DIR"
 export XDG_DATA_HOME="$SHARE_DIR"
 export XDG_CACHE_HOME="$CACHE_DIR"
 export XDG_STATE_HOME="$SHARE_DIR/state"
+export XDG_RUNTIME_DIR="$TEMP_DIR/runtime"
 export OPENCODE_CONFIG_DIR="$CONFIG_DIR/opencode"
 export TMPDIR="$TEMP_DIR"
 export npm_config_cache="$NPMCACHE_DIR"
 
-mkdir -p "$OPENCODE_CONFIG_DIR"
+mkdir -p "$OPENCODE_CONFIG_DIR" "$XDG_RUNTIME_DIR"
 
 # Call the drive's own copy of OpenCode by its exact, absolute path.
 # This deliberately ignores any OpenCode that may be on the host's PATH.

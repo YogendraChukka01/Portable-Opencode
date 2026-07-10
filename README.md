@@ -205,6 +205,26 @@ On every run after the first, the launcher:
 2. Launches OpenCode immediately using the local copies
 3. **Never touches** any OpenCode installation that may exist on the host machine
 
+### Integrity Verification & Reproducible Builds
+Both launchers verify what they download rather than trusting the network blindly:
+
+- **Node.js** is checked against Node's published `SHASUMS256.txt` before extraction (hard-fail on mismatch).
+- **OpenCode** is resolved from the npm registry, its tarball is verified against the registry's published **SHA‑512 Subresource Integrity** (the same SRI npm uses internally), and only then installed. This makes the install tamper-evident.
+- All transient files (Node's downloader `.ps1`, the OpenCode tarball, etc.) are written **onto the drive** (`data/<os>/temp/`) — nothing is left in the host's temp directory, so "zero traces" holds on first run too.
+
+You can **pin a specific OpenCode version** for fully reproducible installs via an environment variable before launching:
+
+```bash
+# Linux
+OPENCODE_VERSION=1.2.3 ./opencode.sh
+
+# Windows (Command Prompt)
+set OPENCODE_VERSION=1.2.3
+opencode.bat
+```
+
+If `OPENCODE_VERSION` is unset, the current `latest` is used. The resolved version is recorded to `opt/opencode-<os>/OPENCODE_VERSION` for reference.
+
 ---
 
 ## ⚙️ Configuration

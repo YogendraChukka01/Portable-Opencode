@@ -97,7 +97,14 @@ REM  STEP 2 - OpenCode itself (only installed once, onto the drive)
 REM ------------------------------------------------------------
 call :LOCATE_OPENCODE
 if not defined OPENCODE_BIN (
-    echo [2/3] OpenCode is not yet installed. Installing from npm now...
+    echo [2/3] OpenCode is not yet installed. Resolving + verifying package now...
+    call :GET_OPENCODE
+    if not defined OPENCODE_TGZ (
+        echo.
+        echo ERROR: Could not resolve/verify the OpenCode package.
+        echo Check your internet connection and try again.
+        goto :END
+    )
     set "PATH=%NODE_DIR%;%PATH%"
     set "npm_config_cache=%NPMCACHE_DIR%"
     set "npm_config_prefix=%APP_DIR%"
@@ -113,7 +120,11 @@ if not defined OPENCODE_BIN (
     REM .exe ourselves instead, and this also sidesteps a class of
     REM symlink/EPERM permission errors some users hit during npm's
     REM bin-linking step.
-    call "%NPM_CMD%" install opencode-windows-%ARCH% --prefix "%APP_DIR%" --no-fund --no-audit --no-bin-links --loglevel=error
+    REM The tarball is first resolved from the registry and verified
+    REM against its published SHA-512 integrity (see :GET_OPENCODE) so the
+    REM install is deterministic (pin via OPENCODE_VERSION) and
+    REM tamper-evident; npm re-verifies it on install as well.
+    call "%NPM_CMD%" install "%OPENCODE_TGZ%" --prefix "%APP_DIR%" --no-fund --no-audit --no-bin-links --loglevel=error
     if errorlevel 1 (
         echo.
         echo ERROR: OpenCode installation failed. Check your internet connection and try again.
@@ -196,9 +207,9 @@ REM Also: this now genuinely reports failure via errorlevel. The old
 REM version's helper always ended with `exit /b 0`, so a failed
 REM download was only ever caught by accident, via the later
 REM "does node.exe exist" check.
-set "TMP_ZIP=%TEMP%\opencode-portable-node.zip"
-set "TMP_EXTRACT=%TEMP%\opencode-portable-node-extract"
-set "PS1=%TEMP%\opencode-portable-get-node.ps1"
+set "TMP_ZIP=%TEMP_DIR%\opencode-portable-node.zip"
+set "TMP_EXTRACT=%TEMP_DIR%\opencode-portable-node-extract"
+set "PS1=%TEMP_DIR%\opencode-portable-get-node.ps1"
 
 > "%PS1%" echo $ErrorActionPreference = 'Stop'
 >> "%PS1%" echo try {
@@ -242,6 +253,61 @@ del "%PS1%" >nul 2>&1
 
 if not "%PSRC%"=="0" (
     exit /b 1
+)
+exit /b 0
+
+REM ==============================================================
+:GET_OPENCODE
+REM Resolves the exact OpenCode npm package version from the registry,
+REM downloads its tarball onto the drive, and verifies its SHA-512
+REM "Subresource Integrity" (SRI) -- the same scheme npm uses to validate
+REM every package. The OpenCode version can be pinned for reproducibility
+REM via the OPENCODE_VERSION env var; otherwise "latest" is used. The
+REM verified tarball path is written to %OC_OUT% for the caller to install.
+REM
+REM All transient files (the generated .ps1, the tarball) live under
+REM %TEMP_DIR% on the drive, so nothing is left on the host machine.
+set "OPENCODE_TGZ="
+set "OC_PS1=%TEMP_DIR%\opencode-get.ps1"
+set "OC_OUT=%TEMP_DIR%\opencode-tgz.txt"
+if exist "%OC_PS1%" del "%OC_PS1%" >nul 2>&1
+if exist "%OC_OUT%" del "%OC_OUT%" >nul 2>&1
+
+> "%OC_PS1%" echo $ErrorActionPreference = 'Stop'
+>> "%OC_PS1%" echo try {
+>> "%OC_PS1%" echo   $arch = '%ARCH%'
+>> "%OC_PS1%" echo   $ver = $env:OPENCODE_VERSION
+>> "%OC_PS1%" echo   $base = "https://registry.npmjs.org/opencode-windows-$arch"
+>> "%OC_PS1%" echo   $url = if ($ver^) { "$base/$ver" } else { "$base/latest" }
+>> "%OC_PS1%" echo   $meta = Invoke-RestMethod -Uri $url
+>> "%OC_PS1%" echo   $version = $meta.version
+>> "%OC_PS1%" echo   $integrity = $meta.dist.integrity
+>> "%OC_PS1%" echo   $tarball = $meta.dist.tarball
+>> "%OC_PS1%" echo   Write-Host "       Resolved OpenCode $version (%ARCH%) ..."
+>> "%OC_PS1%" echo   $tgz = Join-Path '%TEMP_DIR%' ("opencode-" + $version + ".tgz")
+>> "%OC_PS1%" echo   if (-not (Test-Path $tgz^)) { Invoke-WebRequest -Uri $tarball -OutFile $tgz }
+>> "%OC_PS1%" echo   Write-Host '       Verifying package integrity (SHA-512) ...'
+>> "%OC_PS1%" echo   $alg, $expect = $integrity -split '-', 2
+>> "%OC_PS1%" echo   $bytes = [System.IO.File]::ReadAllBytes($tgz)
+>> "%OC_PS1%" echo   $hash = [System.Security.Cryptography.SHA512]::Create().ComputeHash($bytes)
+>> "%OC_PS1%" echo   $actual = [Convert]::ToBase64String($hash)
+>> "%OC_PS1%" echo   if ($expect -and ($expect -ne $actual^)) { Write-Host 'ERROR: OpenCode package integrity mismatch.'; exit 1 }
+>> "%OC_PS1%" echo   if (-not $expect^) { Write-Host 'WARNING: no integrity info; skipping verification.' } else { Write-Host '       Integrity OK.' }
+>> "%OC_PS1%" echo   Set-Content -Path '%OC_OUT%' -Value $tgz
+>> "%OC_PS1%" echo } catch {
+>> "%OC_PS1%" echo   Write-Host ("ERROR: " + $_.Exception.Message)
+>> "%OC_PS1%" echo   exit 1
+>> "%OC_PS1%" echo }
+
+powershell -NoProfile -ExecutionPolicy Bypass -File "%OC_PS1%"
+set "PSRC=%errorlevel%"
+del "%OC_PS1%" >nul 2>&1
+if not "%PSRC%"=="0" (
+    exit /b 1
+)
+if exist "%OC_OUT%" (
+    set /p OPENCODE_TGZ= < "%OC_OUT%"
+    del "%OC_OUT%" >nul 2>&1
 )
 exit /b 0
 
