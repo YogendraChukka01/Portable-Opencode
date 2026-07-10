@@ -101,13 +101,19 @@ if not defined OPENCODE_BIN (
     set "PATH=%NODE_DIR%;%PATH%"
     set "npm_config_cache=%NPMCACHE_DIR%"
     set "npm_config_prefix=%APP_DIR%"
+    REM Install only the platform-specific OpenCode package directly instead
+    REM of the opencode-ai meta package. The meta package depends on every
+    REM platform variant (linux/win/macos x x64/arm64 x baseline/musl/...),
+    REM so `npm install opencode-ai` downloads several ~190 MB binaries and
+    REM resolves metadata for all of them -- needlessly slow. Installing
+    REM just opencode-windows-<arch> grabs the single binary we need.
     REM --no-bin-links: skip npm's generated opencode.cmd/opencode.ps1
     REM wrapper. That wrapper is broken on Windows (it shells out to
     REM /bin/sh, which doesn't exist here) -- we call the real compiled
     REM .exe ourselves instead, and this also sidesteps a class of
     REM symlink/EPERM permission errors some users hit during npm's
     REM bin-linking step.
-    call "%NPM_CMD%" install opencode-ai --prefix "%APP_DIR%" --no-fund --no-audit --no-bin-links --loglevel=error
+    call "%NPM_CMD%" install opencode-windows-%ARCH% --prefix "%APP_DIR%" --no-fund --no-audit --no-bin-links --loglevel=error
     if errorlevel 1 (
         echo.
         echo ERROR: OpenCode installation failed. Check your internet connection and try again.

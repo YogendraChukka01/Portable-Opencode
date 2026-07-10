@@ -230,10 +230,16 @@ if [ -z "$(locate_opencode)" ]; then
     echo "[2/3] OpenCode is not yet installed. Installing from npm now..."
     export PATH="$ENGINE_DIR/bin:$PATH"
     export npm_config_cache="$NPMCACHE_DIR"
+    # Install only the platform-specific OpenCode package directly instead
+    # of the opencode-ai meta package. The meta package depends on every
+    # platform variant (linux/win/macos x x64/arm64 x baseline/musl/...),
+    # so `npm install opencode-ai` downloads several ~190 MB binaries and
+    # resolves metadata for all of them -- needlessly slow. Installing just
+    # opencode-linux-<arch> grabs the single binary we need.
     # --no-bin-links: skip npm's generated .bin/opencode wrapper. We call
     # the real compiled binary ourselves (see below), so we don't need it,
     # and skipping it avoids a class of symlink/shim permission issues.
-    "$NPM_CMD" install opencode-ai --prefix "$APP_DIR" --no-fund --no-audit --no-bin-links --loglevel=error
+    "$NPM_CMD" install "opencode-linux-${OC_ARCH}" --prefix "$APP_DIR" --no-fund --no-audit --no-bin-links --loglevel=error
     if [ -z "$(locate_opencode)" ]; then
         echo
         echo "ERROR: OpenCode installation failed. Check your internet connection and try again."

@@ -57,7 +57,8 @@ WHAT HAPPENS THE FIRST TIME YOU RUN IT (per OS)
 - It downloads a portable copy of Node.js onto the USB, into either
   engine\node-win (Windows) or engine/node-linux (Linux). Only once, per OS.
 - It then installs OpenCode itself onto the USB from the official npm
-  package (opencode-ai), into opt\opencode-win or opt/opencode-linux.
+  package (the platform-specific opencode-<os>-<arch> build published by
+  the opencode-ai project), into opt\opencode-win or opt/opencode-linux.
   Only once, per OS.
 - This first run needs internet access. After that, OpenCode starts
   instantly with no download — on either OS.

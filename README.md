@@ -196,7 +196,7 @@ cd /media/youruser/OPENCODE/OpenCode-Portable
 | **1. Architecture Detection** | Launcher detects x64 or arm64 automatically |
 | **2. Node.js Download** | Downloads portable Node.js → `engine/node-<os>/` |
 | **3. Checksum Verification** | Validates SHA256 checksum against Node's published hashes |
-| **4. npm Installation** | Runs `npm install opencode-ai` → `opt/opencode-<os>/` |
+| **4. npm Installation** | Installs the platform-specific OpenCode build (`opencode-<os>-<arch>`) → `opt/opencode-<os>/` |
 | **5. Launch** | Opens OpenCode with all environment variables set to USB-local paths |
 
 ### Subsequent Runs
@@ -338,7 +338,7 @@ SOFTWARE.
 ### Third-Party Components
 This distribution includes:
 - **Node.js** — downloaded at runtime from [nodejs.org](https://nodejs.org), governed by its own license
-- **OpenCode** — installed from the official npm package `opencode-ai`, governed by the upstream MIT license
+- **OpenCode** — installed from the official npm package published by the `opencode-ai` project (the platform-specific `opencode-<os>-<arch>` build), governed by the upstream MIT license
 - **npm dependencies** — governed by their respective licenses
 
 ---
