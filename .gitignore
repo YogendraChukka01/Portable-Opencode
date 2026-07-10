@@ -1,0 +1,231 @@
+# =============================================================================
+# OpenCode Portable — .gitignore
+# =============================================================================
+# This .gitignore is designed for a portable USB edition of OpenCode.
+# It excludes system junk, IDE files, OS artifacts, Node.js dependencies,
+# downloaded runtimes, installation artifacts, and automatically generated
+# data directories — while keeping only the launcher scripts and
+# documentation in version control.
+# =============================================================================
+
+
+# =============================================================================
+# OpenCode Portable — Generated / Downloaded Artifacts
+# =============================================================================
+
+# Portable Node.js runtimes downloaded at first launch per OS
+engine/node-win/
+engine/node-linux/
+
+# OpenCode npm installation per OS
+opt/opencode-win/
+opt/opencode-linux/
+
+# User data and configuration — generated at runtime per OS
+data/win/
+data/linux/
+
+# Any other data, config, or cache directories that may appear
+data/
+
+# =============================================================================
+# Node.js / npm
+# =============================================================================
+
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# npm package lock (not intended to be committed for portable apps)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Node.js REPL history
+.node_repl_history
+
+# npm cache directories
+.npm/
+.yarn/
+
+# =============================================================================
+# OS-Specific Junk Files
+# =============================================================================
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# macOS
+.DS_Store
+.DS_Store?
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+.DocumentRevisions-V100
+.SyncArchive
+.hidden
+.file
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# =============================================================================
+# IDE / Editor
+# =============================================================================
+
+# VS Code
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+.vscode/*.code-snippets
+*.code-workspace
+.history/
+
+# JetBrains IDEs (IntelliJ, WebStorm, GoLand, etc.)
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+.idea_modules/
+
+# Vim / Neovim
+*.swp
+*.swo
+*.swn
+*.bak
+*.un~
+Session.vim
+.netrwhist
+*.vim
+.vim/
+
+# Emacs
+*~
+\#*\#
+.\#*
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Eclipse
+.project
+.classpath
+.settings/
+*.metadata
+*.tmp
+*.classpath
+*.project
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+*.sublime-build
+
+# =============================================================================
+# Build / Compilation Artifacts
+# =============================================================================
+
+*.class
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+*.dmg
+*.pkg
+*.deb
+*.rpm
+
+# =============================================================================
+# Logs & Database Files
+# =============================================================================
+
+*.log
+*.sqlite
+*.sqlite3
+*.db
+*.journal
+*.trace
+*.seed
+
+# =============================================================================
+# Environment & Secrets (never commit these)
+# =============================================================================
+
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+*.crt
+*.cert
+secrets/
+credentials/
+
+# =============================================================================
+# Docker
+# =============================================================================
+
+.docker/
+docker-compose.override.yml
+
+# =============================================================================
+# Testing / CI
+# =============================================================================
+
+.coverage
+coverage/
+.nyc_output/
+*.lcov
+junit.xml
+report.*.json
+test-results/
+
+# =============================================================================
+# Misc Temporary Files
+# =============================================================================
+
+tmp/
+temp/
+.tmp/
+.temp/
+*.tmp
+*.temp
+*.swp
+*.bak
+*.orig
+*.patch
+*.diff
+crash-*.log
+
+# =============================================================================
+# Git
+# =============================================================================
+
+# Keep .gitkeep files to preserve directory structure when needed
+!.gitkeep
