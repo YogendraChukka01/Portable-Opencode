@@ -71,10 +71,10 @@ for %%D in ("%HOME_DIR%" "%CONFIG_DIR%" "%SHARE_DIR%" "%CACHE_DIR%" "%TEMP_DIR%"
     if not exist "%%~D" mkdir "%%~D" >nul 2>&1
 )
 
-echo.
+echo(
 echo   OpenCode Portable (%ARCH%)
 echo   Running from: %ROOT%
-echo.
+echo(
 
 REM ------------------------------------------------------------
 REM  STEP 1 - Portable Node.js runtime (only downloaded once)
@@ -83,13 +83,13 @@ if not exist "%NODE_EXE%" (
     echo [1/3] No portable Node.js runtime found. Downloading it now...
     call :DOWNLOAD_NODE
     if errorlevel 1 (
-        echo.
+        echo(
         echo ERROR: Could not set up the portable Node.js runtime.
         echo Check your internet connection and try again.
         goto :END
     )
     if not exist "%NODE_EXE%" (
-        echo.
+        echo(
         echo ERROR: Could not set up the portable Node.js runtime.
         echo Check your internet connection and try again.
         goto :END
@@ -108,7 +108,7 @@ if defined OPENCODE_BIN goto :OC_ALREADY
 echo [2/3] OpenCode is not yet installed. Resolving + verifying package now...
 call :GET_OPENCODE
 if not defined OPENCODE_TGZ (
-    echo.
+    echo(
     echo ERROR: Could not resolve/verify the OpenCode package.
     echo Check your internet connection and try again.
     goto :END
@@ -127,16 +127,14 @@ set "npm_config_prefix=%APP_DIR%"
 "%NODE_EXE%" "%NPM_CLI%" install "%OPENCODE_TGZ%" --prefix "%APP_DIR%" --no-fund --no-audit --no-bin-links --loglevel=error
 set "NPM_RC=%errorlevel%"
 echo        npm exit code: %NPM_RC%
-echo DBG_A_after_npm
 
 REM npm can return a non-zero exit for non-fatal reasons (e.g. an
 REM EBADENGINE/peer-dependency note) even when the package was installed
 REM successfully. Treat the install as successful when the real binary
 REM exists; only bail out if it is genuinely missing.
 call :LOCATE_OPENCODE
-echo DBG_B_after_locate BIN=%OPENCODE_BIN%
 if not defined OPENCODE_BIN (
-    echo.
+    echo(
     if "%NPM_RC%"=="0" (
         echo ERROR: OpenCode install reported success but the binary was not found.
     ) else (
@@ -149,9 +147,7 @@ REM Record the resolved OpenCode version for reference (mirrors the
 REM Linux launcher, which writes opt/opencode-linux/OPENCODE_VERSION).
 REM Use `for /f` to read the file: `set /p VAR=<"file"` misparses inside
 REM a parenthesised block under cmd (". was unexpected at this time.").
-echo DBG_C_before_version OC_VER=%OC_VER%
 if exist "%OC_VER%" (
-    echo DBG_D_in_version_block
     for /f "usebackq delims=" %%V in ("%OC_VER%") do >"%APP_DIR%\OPENCODE_VERSION" echo %%V
 )
 echo       OpenCode installed successfully.
@@ -169,7 +165,7 @@ REM  THIS process tree. Nothing is written to the Windows registry
 REM  and nothing persists on the host once you close this window.
 REM ------------------------------------------------------------
 echo [3/3] Launching OpenCode ^(portable^)...
-echo.
+echo(
 
 set "PATH=%NODE_DIR%;%PATH%"
 
