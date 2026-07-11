@@ -18,9 +18,13 @@ jobs:
         run: |
           npm --version
           curl -fsSL https://registry.npmjs.org/opencode-windows-x64/-/opencode-windows-x64-1.17.18.tgz -o oc.tgz
-          echo === with --loglevel=error ===
-          npm install "%CD%\oc.tgz" --prefix "%CD%\app" --no-fund --no-audit --no-bin-links --loglevel=error 2>&1 | findstr /i "error code EUSAGE" | head
-          echo exit1=%errorlevel%
-          echo === with --log-level=error ===
-          npm install "%CD%\oc.tgz" --prefix "%CD%\app2" --no-fund --no-audit --no-bin-links --log-level=error 2>&1 | findstr /i "error code EUSAGE" | head
-          echo exit2=%errorlevel%
+          echo TEST1 start
+          npm install "%CD%\oc.tgz" --prefix "%CD%\app" --no-fund --no-audit --no-bin-links --loglevel=error > out1.txt 2>&1
+          echo TEST1 exit=%errorlevel%
+          findstr /i "EUSAGE" out1.txt >nul && echo TEST1_HAS_EUSAGE || echo TEST1_NO_EUSAGE
+          echo TEST2 start
+          npm install "%CD%\oc.tgz" --prefix "%CD%\app2" --no-fund --no-audit --no-bin-links --log-level=error > out2.txt 2>&1
+          echo TEST2 exit=%errorlevel%
+          findstr /i "EUSAGE" out2.txt >nul && echo TEST2_HAS_EUSAGE || echo TEST2_NO_EUSAGE
+          echo ---- out1 tail ----
+          powershell -NoProfile -Command "Get-Content out1.txt | Select-Object -Last 6"
