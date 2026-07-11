@@ -1,0 +1,37 @@
+name: Windows smoke test (opencode.bat)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run opencode.bat --version (downloads Node + OpenCode, then launches)
+        shell: cmd
+        run: |
+          cd OpenCode-Portable
+          opencode.bat --version
+
+      - name: Show recorded version file
+        shell: cmd
+        run: |
+          cd OpenCode-Portable
+          if exist opt\opencode-win\OPENCODE_VERSION (
+            echo OPENCODE_VERSION file contents:
+            type opt\opencode-win\OPENCODE_VERSION
+          ) else (
+            echo OPENCODE_VERSION NOT WRITTEN
+            exit 1
+          )
+
+      - name: Confirm binary present
+        shell: cmd
+        run: |
+          cd OpenCode-Portable
+          dir opt\opencode-win\node_modules\opencode-windows-x64\bin\opencode.exe

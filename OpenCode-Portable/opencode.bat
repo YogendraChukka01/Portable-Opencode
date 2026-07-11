@@ -269,16 +269,25 @@ REM downloads its tarball onto the drive, and verifies its SHA-512
 REM "Subresource Integrity" (SRI) -- the same scheme npm uses to validate
 REM every package. The OpenCode version can be pinned for reproducibility
 REM via the OPENCODE_VERSION env var; otherwise "latest" is used. The
-REM verified tarball path is written to %OC_OUT% for the caller to install.
+REM resolved version is written (as ASCII, see note below) to %OC_VER%;
+REM the caller derives the tarball path from it.
+REM
+REM IMPORTANT: the version file is written with -Encoding ascii on
+REM purpose. The bundled Windows PowerShell (5.1) defaults Set-Content
+REM to UTF-16 LE, which packs a NUL byte after every character; the
+REM batch `set /p` that reads it back would truncate at the first NUL
+REM (leaving just the drive letter) and hand npm a garbage path ->
+REM "npm error code EUSAGE". ASCII is single-byte with no BOM, so it
+REM round-trips cleanly through `set /p`. The tarball path itself is
+REM derived from the version string in the batch rather than written
+REM to a file, avoiding any non-ASCII path issues entirely.
 REM
 REM All transient files (the generated .ps1, the tarball) live under
 REM %TEMP_DIR% on the drive, so nothing is left on the host machine.
 set "OPENCODE_TGZ="
 set "OC_PS1=%TEMP_DIR%\opencode-get.ps1"
-set "OC_OUT=%TEMP_DIR%\opencode-tgz.txt"
 set "OC_VER=%TEMP_DIR%\opencode-version.txt"
 if exist "%OC_PS1%" del "%OC_PS1%" >nul 2>&1
-if exist "%OC_OUT%" del "%OC_OUT%" >nul 2>&1
 
 > "%OC_PS1%" echo $ErrorActionPreference = 'Stop'
 >> "%OC_PS1%" echo try {
@@ -300,8 +309,7 @@ if exist "%OC_OUT%" del "%OC_OUT%" >nul 2>&1
 >> "%OC_PS1%" echo   $actual = [Convert]::ToBase64String($hash)
 >> "%OC_PS1%" echo   if ($expect -and ($expect -ne $actual^)) { Write-Host 'ERROR: OpenCode package integrity mismatch.'; exit 1 }
 >> "%OC_PS1%" echo   if (-not $expect^) { Write-Host 'WARNING: no integrity info; skipping verification.' } else { Write-Host '       Integrity OK.' }
->> "%OC_PS1%" echo   Set-Content -Path '%OC_OUT%' -Value $tgz
->> "%OC_PS1%" echo   Set-Content -Path '%OC_VER%' -Value $version
+>> "%OC_PS1%" echo   Set-Content -Path '%OC_VER%' -Value $version -Encoding ascii
 >> "%OC_PS1%" echo } catch {
 >> "%OC_PS1%" echo   Write-Host ("ERROR: " + $_.Exception.Message)
 >> "%OC_PS1%" echo   exit 1
@@ -313,11 +321,10 @@ del "%OC_PS1%" >nul 2>&1
 if not "%PSRC%"=="0" (
     exit /b 1
 )
-if exist "%OC_OUT%" (
-    set /p OPENCODE_TGZ= < "%OC_OUT%"
-    del "%OC_OUT%" >nul 2>&1
+if exist "%OC_VER%" (
+    set /p OCV=<"%OC_VER%"
+    set "OPENCODE_TGZ=%TEMP_DIR%\opencode-!OCV!.tgz"
 )
-if exist "%OC_VER%" del "%OC_VER%" >nul 2>&1
 exit /b 0
 
 REM ==============================================================
