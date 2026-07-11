@@ -13,18 +13,23 @@ jobs:
         with:
           node-version: 24
           architecture: x64
-      - name: npm version + reproduce exact install command
+      - name: download tgz
+        shell: cmd
+        run: curl -fsSL https://registry.npmjs.org/opencode-windows-x64/-/opencode-windows-x64-1.17.18.tgz -o oc.tgz
+      - name: A = current .bat flags (--loglevel=error)
         shell: cmd
         run: |
-          npm --version
-          curl -fsSL https://registry.npmjs.org/opencode-windows-x64/-/opencode-windows-x64-1.17.18.tgz -o oc.tgz
-          echo TEST1 start
-          npm install "%CD%\oc.tgz" --prefix "%CD%\app" --no-fund --no-audit --no-bin-links --loglevel=error > out1.txt 2>&1
-          echo TEST1 exit=%errorlevel%
-          findstr /i "EUSAGE" out1.txt >nul && echo TEST1_HAS_EUSAGE || echo TEST1_NO_EUSAGE
-          echo TEST2 start
-          npm install "%CD%\oc.tgz" --prefix "%CD%\app2" --no-fund --no-audit --no-bin-links --log-level=error > out2.txt 2>&1
-          echo TEST2 exit=%errorlevel%
-          findstr /i "EUSAGE" out2.txt >nul && echo TEST2_HAS_EUSAGE || echo TEST2_NO_EUSAGE
-          echo ---- out1 tail ----
-          powershell -NoProfile -Command "Get-Content out1.txt | Select-Object -Last 6"
+          npm install "%CD%\oc.tgz" --prefix "%CD%\appA" --no-fund --no-audit --no-bin-links --loglevel=error > a.txt 2>&1
+          findstr /i "EUSAGE" a.txt >nul && (echo A_EUSAGE_PRESENT && exit 1) || echo A_FINE
+      - name: B = --log-level=error
+        shell: cmd
+        run: |
+          npm install "%CD%\oc.tgz" --prefix "%CD%\appB" --no-fund --no-audit --no-bin-links --log-level=error > b.txt 2>&1
+          findstr /i "EUSAGE" b.txt >nul && (echo B_EUSAGE_PRESENT && exit 1) || echo B_FINE
+      - name: C = call npm.cmd exactly like .bat does
+        shell: cmd
+        run: |
+          call "%CD%\..\..\node_modules\npm\bin\npm-cli.js" >nul 2>&1
+          for /f "delims=" %%N in ('npm prefix -g') do set "NP=%N"
+          call npm install "%CD%\oc.tgz" --prefix "%CD%\appC" --no-fund --no-audit --no-bin-links --loglevel=error > c.txt 2>&1
+          findstr /i "EUSAGE" c.txt >nul && (echo C_EUSAGE_PRESENT && exit 1) || echo C_FINE
