@@ -138,7 +138,7 @@ if not defined OPENCODE_BIN (
     if "%NPM_RC%"=="0" (
         echo ERROR: OpenCode install reported success but the binary was not found.
     ) else (
-        echo ERROR: OpenCode installation failed (npm exit %NPM_RC%). Check your internet connection and try again.
+        echo ERROR: OpenCode installation failed - npm exit %NPM_RC%. Check your internet connection and try again.
     )
     goto :END
 )
@@ -148,7 +148,9 @@ REM Linux launcher, which writes opt/opencode-linux/OPENCODE_VERSION).
 REM Use `for /f` to read the file: `set /p VAR=<"file"` misparses inside
 REM a parenthesised block under cmd (". was unexpected at this time.").
 if exist "%OC_VER%" (
-    for /f "usebackq delims=" %%V in ("%OC_VER%") do >"%APP_DIR%\OPENCODE_VERSION" echo %%V
+    for /f "usebackq delims=" %%V in ("%OC_VER%") do (
+        >"%APP_DIR%\OPENCODE_VERSION" echo %%V
+    )
 )
 echo       OpenCode installed successfully.
 goto :OC_DONE
