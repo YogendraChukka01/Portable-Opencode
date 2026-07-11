@@ -105,32 +105,14 @@ if not defined OPENCODE_BIN (
         echo Check your internet connection and try again.
         goto :END
     )
-    set "PATH=%NODE_DIR%;%PATH%"
-    set "npm_config_cache=%NPMCACHE_DIR%"
-    set "npm_config_prefix=%APP_DIR%"
-    REM Install only the platform-specific OpenCode package directly instead
-    REM of the opencode-ai meta package. The meta package depends on every
-    REM platform variant (linux/win/macos x x64/arm64 x baseline/musl/...),
-    REM so `npm install opencode-ai` downloads several ~190 MB binaries and
-    REM resolves metadata for all of them -- needlessly slow. Installing
-    REM just opencode-windows-<arch> grabs the single binary we need.
-    REM --no-bin-links: skip npm's generated opencode.cmd/opencode.ps1
-    REM wrapper. That wrapper is broken on Windows (it shells out to
-    REM /bin/sh, which doesn't exist here) -- we call the real compiled
-    REM .exe ourselves instead, and this also sidesteps a class of
-    REM symlink/EPERM permission errors some users hit during npm's
-    REM bin-linking step.
-    REM The tarball is first resolved from the registry and verified
-    REM against its published SHA-512 integrity (see :GET_OPENCODE) so the
-    REM install is deterministic (pin via OPENCODE_VERSION) and
-    REM tamper-evident; npm re-verifies it on install as well.
-    REM NOTE: invoke npm.cmd directly (NO `call`). Under `cmd`, `call npm …`
-    REM re-parses the arguments and splits tokens such as `--loglevel=error`
-    REM at the `=`, handing npm a malformed argument list -> "npm error code
-    REM EUSAGE". Running npm.cmd directly (it falls off its end and returns
-    REM control) passes the arguments intact. Verified on GitHub Actions
-    REM windows-latest (npm 11.16.0).
-    "%NPM_CMD%" install "%OPENCODE_TGZ%" --prefix "%APP_DIR%" --no-fund --no-audit --no-bin-links --loglevel=error
+    REM Install OpenCode. The `npm install` call is performed by the
+    REM :INSTALL_OPENCODE subroutine (a top-level command) rather than
+    REM inline here: cmd mangles `=`/quoted arguments such as
+    REM `--loglevel=error` and `--prefix "..."` when the command sits inside
+    REM a parenthesised `if` block, handing npm a broken argument list and
+    REM producing "npm error code EUSAGE". Running it at top level passes
+    REM the arguments intact.
+    call :INSTALL_OPENCODE
     if errorlevel 1 (
         echo.
         echo ERROR: OpenCode installation failed. Check your internet connection and try again.
@@ -332,6 +314,18 @@ if exist "%OC_VER%" (
     set "OPENCODE_TGZ=%TEMP_DIR%\opencode-!OCV!.tgz"
 )
 exit /b 0
+
+REM ==============================================================
+:INSTALL_OPENCODE
+REM Installs the resolved OpenCode tarball via npm. Run as a top-level
+REM command (never inside a parenthesised `if` block): cmd re-parses
+REM arguments inside `(...)` and splits `--loglevel=error` / `--prefix "..."`
+REM at the `=`, which makes npm fail with "npm error code EUSAGE".
+set "PATH=%NODE_DIR%;%PATH%"
+set "npm_config_cache=%NPMCACHE_DIR%"
+set "npm_config_prefix=%APP_DIR%"
+"%NPM_CMD%" install "%OPENCODE_TGZ%" --prefix "%APP_DIR%" --no-fund --no-audit --no-bin-links --loglevel=error
+exit /b
 
 REM ==============================================================
 :LOCATE_OPENCODE
