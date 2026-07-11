@@ -124,7 +124,13 @@ if not defined OPENCODE_BIN (
     REM against its published SHA-512 integrity (see :GET_OPENCODE) so the
     REM install is deterministic (pin via OPENCODE_VERSION) and
     REM tamper-evident; npm re-verifies it on install as well.
-    call "%NPM_CMD%" install "%OPENCODE_TGZ%" --prefix "%APP_DIR%" --no-fund --no-audit --no-bin-links --loglevel=error
+    REM NOTE: invoke npm.cmd directly (NO `call`). Under `cmd`, `call npm …`
+    REM re-parses the arguments and splits tokens such as `--loglevel=error`
+    REM at the `=`, handing npm a malformed argument list -> "npm error code
+    REM EUSAGE". Running npm.cmd directly (it falls off its end and returns
+    REM control) passes the arguments intact. Verified on GitHub Actions
+    REM windows-latest (npm 11.16.0).
+    "%NPM_CMD%" install "%OPENCODE_TGZ%" --prefix "%APP_DIR%" --no-fund --no-audit --no-bin-links --loglevel=error
     if errorlevel 1 (
         echo.
         echo ERROR: OpenCode installation failed. Check your internet connection and try again.
