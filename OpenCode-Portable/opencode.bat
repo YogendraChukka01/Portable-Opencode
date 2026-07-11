@@ -145,9 +145,10 @@ if not defined OPENCODE_BIN (
 
 REM Record the resolved OpenCode version for reference (mirrors the
 REM Linux launcher, which writes opt/opencode-linux/OPENCODE_VERSION).
+REM Use `for /f` to read the file: `set /p VAR=<"file"` misparses inside
+REM a parenthesised block under cmd (". was unexpected at this time.").
 if exist "%OC_VER%" (
-    set /p OCV=<"%OC_VER%"
-    >"%APP_DIR%\OPENCODE_VERSION" echo !OCV!
+    for /f "usebackq delims=" %%V in ("%OC_VER%") do >"%APP_DIR%\OPENCODE_VERSION" echo %%V
 )
 echo       OpenCode installed successfully.
 goto :OC_DONE
