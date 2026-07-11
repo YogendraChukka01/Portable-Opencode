@@ -34,7 +34,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # 40 lines deep into a download.
 # --------------------------------------------------------------
 missing=()
-for cmd in curl tar openssl; do
+for cmd in curl tar openssl sha256sum; do
     command -v "$cmd" >/dev/null 2>&1 || missing+=("$cmd")
 done
 if [ "${#missing[@]}" -gt 0 ]; then
@@ -218,25 +218,18 @@ if [ ! -x "$NODE_BIN" ]; then
         exit 1
     fi
 
-    VER=""
-    if command -v node >/dev/null 2>&1; then
-        VER="$(node -e '
-            const fs=require("fs");
-            const idx=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));
-            const lts=idx.find(e=>e.lts);
-            console.log(lts ? lts.version : idx[0].version);
-        ' "$INDEX_JSON" 2>/dev/null || true)"
-    fi
+    # Always resolve the LTS version with a self-contained text parse. We
+    # deliberately do NOT shell out to any Node.js that may happen to be
+    # installed on the host: this launcher's whole point is to be
+    # independent of the host, and a broken/old host `node` could otherwise
+    # hand back a wrong version. The index is minified, so normalize to one
+    # JSON object per line first, then take the first record whose "lts"
+    # field is a (non-false) string.
+    NORMALIZED="$TEMP_DIR/node-index-normalized.txt"
+    sed 's/},{/}\n{/g' "$INDEX_JSON" > "$NORMALIZED"
+    VER="$(grep -m1 '"lts":[[:space:]]*"' "$NORMALIZED" | sed -E 's/.*"version":"([^"]+)".*/\1/' || true)"
     if [ -z "$VER" ]; then
-        # No node available yet (expected on first run - that's what we're
-        # bootstrapping). Fall back to a record-per-line normalization
-        # instead of assuming the file already has one record per line.
-        NORMALIZED="$TEMP_DIR/node-index-normalized.txt"
-        sed 's/},{/}\n{/g' "$INDEX_JSON" > "$NORMALIZED"
-        VER="$(grep -m1 '"lts":[[:space:]]*"' "$NORMALIZED" | sed -E 's/.*"version":"([^"]+)".*/\1/' || true)"
-        if [ -z "$VER" ]; then
-            VER="$(grep -m1 '"version"' "$NORMALIZED" | sed -E 's/.*"version":"([^"]+)".*/\1/' || true)"
-        fi
+        VER="$(grep -m1 '"version"' "$NORMALIZED" | sed -E 's/.*"version":"([^"]+)".*/\1/' || true)"
     fi
     if [ -z "$VER" ]; then
         echo "ERROR: could not determine the current Node.js LTS version from nodejs.org."

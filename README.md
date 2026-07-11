@@ -80,7 +80,7 @@ The launchers set environment variables (`HOME`, `APPDATA`, `XDG_CONFIG_HOME`, `
 |------------|---------|-------|
 | **OS Version** | Windows 10+ | Any modern distro with bash |
 | **Architecture** | x64 or arm64 | x64 or arm64 |
-| **Pre-installed Tools** | PowerShell (bundled) | bash, curl, tar (default on virtually all distros) |
+| **Pre-installed Tools** | PowerShell (bundled) | bash, curl, tar, openssl, sha256sum (default on virtually all distros) |
 | **Admin / Root** | ❌ Not required | ❌ Not required (see noexec note) |
 | **Internet** | ✅ Required on first run only | ✅ Required on first run only |
 | **USB Drive** | exFAT-formatted (see below) | exFAT-formatted (see below) |
@@ -142,7 +142,7 @@ Copy the entire `OpenCode-Portable` folder onto the USB drive:
 
 ```bash
 # Windows (example)
-copy C:\Downloads\OpenCode-Portable E:\OpenCode-Portable /E
+xcopy C:\Downloads\OpenCode-Portable E:\OpenCode-Portable /E /I
 
 # Linux (example)
 cp -r ~/Downloads/OpenCode-Portable /media/user/OPENCODE/

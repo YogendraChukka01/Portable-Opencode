@@ -17,12 +17,13 @@ This build fixes several real bugs found in the previous version:
   2. Both launchers now install with --no-bin-links, avoiding a class
      of symlink/EPERM permission errors some Windows users hit during
      npm's shim-generation step.
-  3. LINUX: the old Node.js "LTS version" lookup used a grep/sed
-     one-liner over nodejs.org/dist/index.json that could silently
-     grab the wrong version (or, under some shells, abort the whole
-     script) if that file isn't formatted exactly as expected. The
-     lookup is now done reliably (via Node itself where available,
-     with a hardened text-based fallback otherwise).
+   3. LINUX: the old Node.js "LTS version" lookup used a grep/sed
+      one-liner over nodejs.org/dist/index.json that could silently
+      grab the wrong version (or, under some shells, abort the whole
+      script) if that file isn't formatted exactly as expected. The
+      lookup is now done reliably with a self-contained text-based
+      parser that never depends on any Node.js that may be installed
+      on the host machine.
   4. Both platforms previously assumed x64 unconditionally. Both
      launchers now detect the CPU architecture and also support
      arm64 (Raspberry Pi / Graviton / Linux-on-ARM, and Windows
@@ -164,6 +165,6 @@ REQUIREMENTS ON THE HOST
 -----------------------------
 Windows: Windows 10+ (PowerShell, bundled with Windows, is used only for
          the one-time download/extract step). No admin rights needed.
-Linux:   bash, curl, tar (present on virtually every distro by default).
+Linux:   bash, curl, tar, openssl, sha256sum (present on virtually every distro by default).
          No root needed, unless you hit the noexec issue above.
 Both:    Internet access on first run only, per OS.

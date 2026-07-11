@@ -136,6 +136,12 @@ if not defined OPENCODE_BIN (
         echo ERROR: OpenCode installation failed. Check your internet connection and try again.
         goto :END
     )
+    REM Record the resolved OpenCode version for reference (mirrors the
+    REM Linux launcher, which writes opt/opencode-linux/OPENCODE_VERSION).
+    if exist "%OC_VER%" (
+        set /p OCV=<"%OC_VER%"
+        >"%APP_DIR%\OPENCODE_VERSION" echo !OCV!
+    )
     echo       OpenCode installed successfully.
 ) else (
     echo [2/3] OpenCode already installed. OK.
@@ -270,6 +276,7 @@ REM %TEMP_DIR% on the drive, so nothing is left on the host machine.
 set "OPENCODE_TGZ="
 set "OC_PS1=%TEMP_DIR%\opencode-get.ps1"
 set "OC_OUT=%TEMP_DIR%\opencode-tgz.txt"
+set "OC_VER=%TEMP_DIR%\opencode-version.txt"
 if exist "%OC_PS1%" del "%OC_PS1%" >nul 2>&1
 if exist "%OC_OUT%" del "%OC_OUT%" >nul 2>&1
 
@@ -294,6 +301,7 @@ if exist "%OC_OUT%" del "%OC_OUT%" >nul 2>&1
 >> "%OC_PS1%" echo   if ($expect -and ($expect -ne $actual^)) { Write-Host 'ERROR: OpenCode package integrity mismatch.'; exit 1 }
 >> "%OC_PS1%" echo   if (-not $expect^) { Write-Host 'WARNING: no integrity info; skipping verification.' } else { Write-Host '       Integrity OK.' }
 >> "%OC_PS1%" echo   Set-Content -Path '%OC_OUT%' -Value $tgz
+>> "%OC_PS1%" echo   Set-Content -Path '%OC_VER%' -Value $version
 >> "%OC_PS1%" echo } catch {
 >> "%OC_PS1%" echo   Write-Host ("ERROR: " + $_.Exception.Message)
 >> "%OC_PS1%" echo   exit 1
@@ -309,6 +317,7 @@ if exist "%OC_OUT%" (
     set /p OPENCODE_TGZ= < "%OC_OUT%"
     del "%OC_OUT%" >nul 2>&1
 )
+if exist "%OC_VER%" del "%OC_VER%" >nul 2>&1
 exit /b 0
 
 REM ==============================================================
