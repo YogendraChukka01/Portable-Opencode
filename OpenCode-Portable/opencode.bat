@@ -127,12 +127,14 @@ set "npm_config_prefix=%APP_DIR%"
 "%NODE_EXE%" "%NPM_CLI%" install "%OPENCODE_TGZ%" --prefix "%APP_DIR%" --no-fund --no-audit --no-bin-links --loglevel=error
 set "NPM_RC=%errorlevel%"
 echo        npm exit code: %NPM_RC%
+echo DBG_A_after_npm
 
 REM npm can return a non-zero exit for non-fatal reasons (e.g. an
 REM EBADENGINE/peer-dependency note) even when the package was installed
 REM successfully. Treat the install as successful when the real binary
 REM exists; only bail out if it is genuinely missing.
 call :LOCATE_OPENCODE
+echo DBG_B_after_locate BIN=%OPENCODE_BIN%
 if not defined OPENCODE_BIN (
     echo.
     if "%NPM_RC%"=="0" (
@@ -147,7 +149,9 @@ REM Record the resolved OpenCode version for reference (mirrors the
 REM Linux launcher, which writes opt/opencode-linux/OPENCODE_VERSION).
 REM Use `for /f` to read the file: `set /p VAR=<"file"` misparses inside
 REM a parenthesised block under cmd (". was unexpected at this time.").
+echo DBG_C_before_version OC_VER=%OC_VER%
 if exist "%OC_VER%" (
+    echo DBG_D_in_version_block
     for /f "usebackq delims=" %%V in ("%OC_VER%") do >"%APP_DIR%\OPENCODE_VERSION" echo %%V
 )
 echo       OpenCode installed successfully.
