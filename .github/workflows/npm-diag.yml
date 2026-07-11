@@ -16,13 +16,12 @@ jobs:
       - name: download tgz
         shell: cmd
         run: curl -fsSL https://registry.npmjs.org/opencode-windows-x64/-/opencode-windows-x64-1.17.18.tgz -o oc.tgz
-      - name: F = cmd /c node npm-cli.js (PROPOSED FIX)
+      - name: E = direct "%NPM_CMD%" install (no call) + echo after
         shell: cmd
         run: |
           for /f "delims=" %%P in ('where npm') do set "NPMCMD=%%P"
-          set "NPMCLI=%~dpPnpm-cli.js"
-          cmd /c ""%NPMCMD%"" >nul 2>&1
-          cmd /c ""%NODE_EXE%" "%NPMCLI%" install "%CD%\oc.tgz" --prefix "%CD%\appF" --no-fund --no-audit --no-bin-links --loglevel=error" > f.txt 2>&1
-          echo F_exit=%errorlevel%
-          findstr /i "EUSAGE" f.txt >nul && (echo F_EUSAGE && exit 1) || echo F_FINE
-          powershell -NoProfile -Command "Get-Content f.txt | Select-Object -Last 4"
+          "%NPMCMD%" install "%CD%\oc.tgz" --prefix "%CD%\appE" --no-fund --no-audit --no-bin-links --loglevel=error > e.txt 2>&1
+          echo AFTER_INSTALL exit=%errorlevel%
+          findstr /i "EUSAGE" e.txt >nul && (echo E_EUSAGE && exit 1) || echo E_FINE
+          powershell -NoProfile -Command "Get-Content e.txt | Select-Object -Last 4"
+          dir appE\node_modules\opencode-windows-x64\bin\opencode.exe
