@@ -1,0 +1,25 @@
+name: npm install diagnostic (Windows)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  npm-diag:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          architecture: x64
+      - name: npm version + reproduce exact install command
+        shell: cmd
+        run: |
+          npm --version
+          curl -fsSL https://registry.npmjs.org/opencode-windows-x64/-/opencode-windows-x64-1.17.18.tgz -o oc.tgz
+          echo === with --loglevel=error ===
+          npm install "%CD%\oc.tgz" --prefix "%CD%\app" --no-fund --no-audit --no-bin-links --loglevel=error 2>&1 | findstr /i "error code EUSAGE" | head
+          echo exit1=%errorlevel%
+          echo === with --log-level=error ===
+          npm install "%CD%\oc.tgz" --prefix "%CD%\app2" --no-fund --no-audit --no-bin-links --log-level=error 2>&1 | findstr /i "error code EUSAGE" | head
+          echo exit2=%errorlevel%
