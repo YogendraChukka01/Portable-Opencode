@@ -34,4 +34,4 @@ jobs:
         shell: cmd
         run: |
           cd OpenCode-Portable
-          dir opt\opencode-win\node_modules\opencode-windows-x64\bin\opencode.exe
+          dir /s opt\opencode-win\node_modules\opencode*.exe 2>nul || (echo opencode.exe NOT FOUND & exit 1)

@@ -118,16 +118,21 @@ set "PATH=%NODE_DIR%;%PATH%"
 set "npm_config_cache=%NPMCACHE_DIR%"
 set "npm_config_prefix=%APP_DIR%"
 "%NPM_CMD%" install "%OPENCODE_TGZ%" --prefix "%APP_DIR%" --no-fund --no-audit --no-bin-links --loglevel=error
-if errorlevel 1 (
-    echo.
-    echo ERROR: OpenCode installation failed. Check your internet connection and try again.
-    goto :END
-)
+set "NPM_RC=%errorlevel%"
+echo        npm exit code: %NPM_RC%
 
+REM npm can return a non-zero exit for non-fatal reasons (e.g. an
+REM EBADENGINE/peer-dependency note) even when the package was installed
+REM successfully. Treat the install as successful when the real binary
+REM exists; only bail out if it is genuinely missing.
 call :LOCATE_OPENCODE
 if not defined OPENCODE_BIN (
     echo.
-    echo ERROR: OpenCode installation failed. Check your internet connection and try again.
+    if "%NPM_RC%"=="0" (
+        echo ERROR: OpenCode install reported success but the binary was not found.
+    ) else (
+        echo ERROR: OpenCode installation failed (npm exit %NPM_RC%). Check your internet connection and try again.
+    )
     goto :END
 )
 
