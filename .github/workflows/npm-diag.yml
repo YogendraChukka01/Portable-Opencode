@@ -1,7 +1,8 @@
 name: npm install diagnostic (Windows)
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
 
 jobs:
   npm-diag:
