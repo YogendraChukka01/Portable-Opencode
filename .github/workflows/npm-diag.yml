@@ -16,20 +16,17 @@ jobs:
       - name: download tgz
         shell: cmd
         run: curl -fsSL https://registry.npmjs.org/opencode-windows-x64/-/opencode-windows-x64-1.17.18.tgz -o oc.tgz
-      - name: A = current .bat flags (--loglevel=error)
+      - name: D = call node npm-cli.js (PROPOSED FIX)
         shell: cmd
         run: |
-          npm install "%CD%\oc.tgz" --prefix "%CD%\appA" --no-fund --no-audit --no-bin-links --loglevel=error > a.txt 2>&1
-          findstr /i "EUSAGE" a.txt >nul && (echo A_EUSAGE_PRESENT && exit 1) || echo A_FINE
-      - name: B = --log-level=error
+          for /f "delims=" %%P in ('where npm') do set "NPMCMD=%%P"
+          set "NPMDIR=%~dpP"
+          set "NPMCLI=%NPMDIR%npm-cli.js"
+          call node "%NPMCLI%" install "%CD%\oc.tgz" --prefix "%CD%\appD" --no-fund --no-audit --no-bin-links --loglevel=error > d.txt 2>&1
+          findstr /i "EUSAGE" d.txt >nul && (echo D_EUSAGE && exit 1) || echo D_FINE
+      - name: E = direct "%NPM_CMD%" install (no call, last cmd)
         shell: cmd
         run: |
-          npm install "%CD%\oc.tgz" --prefix "%CD%\appB" --no-fund --no-audit --no-bin-links --log-level=error > b.txt 2>&1
-          findstr /i "EUSAGE" b.txt >nul && (echo B_EUSAGE_PRESENT && exit 1) || echo B_FINE
-      - name: C = call npm.cmd exactly like .bat does
-        shell: cmd
-        run: |
-          call "%CD%\..\..\node_modules\npm\bin\npm-cli.js" >nul 2>&1
-          for /f "delims=" %%N in ('npm prefix -g') do set "NP=%N"
-          call npm install "%CD%\oc.tgz" --prefix "%CD%\appC" --no-fund --no-audit --no-bin-links --loglevel=error > c.txt 2>&1
-          findstr /i "EUSAGE" c.txt >nul && (echo C_EUSAGE_PRESENT && exit 1) || echo C_FINE
+          for /f "delims=" %%P in ('where npm') do set "NPMCMD=%%P"
+          "%NPMCMD%" install "%CD%\oc.tgz" --prefix "%CD%\appE" --no-fund --no-audit --no-bin-links --loglevel=error > e.txt 2>&1
+          findstr /i "EUSAGE" e.txt >nul && (echo E_EUSAGE && exit 1) || echo E_FINE
