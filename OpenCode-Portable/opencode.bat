@@ -43,6 +43,13 @@ if /i "%PROCESSOR_ARCHITEW6432%"=="ARM64" set "ARCH=arm64"
 set "NODE_DIR=%ROOT%\engine\node-win"
 set "NODE_EXE=%NODE_DIR%\node.exe"
 set "NPM_CMD=%NODE_DIR%\npm.cmd"
+REM Drive npm via node.exe + npm-cli.js directly. Invoking the npm.cmd
+REM wrapper without `call` abandons this batch (npm.cmd ends the process
+REM instead of returning), so the launcher would stop right after install.
+REM node.exe is a real executable and returns control cleanly, and we
+REM avoid `call` (which re-splits `--loglevel=error`/`--prefix "..."` at
+REM the `=`, causing npm "EUSAGE").
+set "NPM_CLI=%NODE_DIR%\node_modules\npm\bin\npm-cli.js"
 
 set "APP_DIR=%ROOT%\opt\opencode-win"
 REM The real compiled binary lives in the platform package
@@ -117,7 +124,7 @@ REM (verified on GitHub Actions windows-latest, npm 11.16.0).
 set "PATH=%NODE_DIR%;%PATH%"
 set "npm_config_cache=%NPMCACHE_DIR%"
 set "npm_config_prefix=%APP_DIR%"
-"%NPM_CMD%" install "%OPENCODE_TGZ%" --prefix "%APP_DIR%" --no-fund --no-audit --no-bin-links --loglevel=error
+"%NODE_EXE%" "%NPM_CLI%" install "%OPENCODE_TGZ%" --prefix "%APP_DIR%" --no-fund --no-audit --no-bin-links --loglevel=error
 set "NPM_RC=%errorlevel%"
 echo        npm exit code: %NPM_RC%
 
