@@ -364,5 +364,21 @@ This distribution includes:
 ---
 
 <p align="center">
-  <sub>Built with ❤️ for portable development. Not affiliated with anomalyco or the OpenCode project.</sub>
+  <sub>Unofficial portable fork — not affiliated with the upstream OpenCode project.</sub>
+</p>
+
+---
+
+<h3 align="center">
+
+```
+Built by Yogi
+
+  Build.  Learn.  Ship.  Iterate.
+```
+
+</h3>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/—%20AI%20×%20Software%20×%20Product%20×%20Open%20Source-0d1117?style=for-the-badge&labelColor=0d1117&color=7c3aed"/>
 </p>
