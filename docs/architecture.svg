@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0"/><stop offset="1" stop-color="#1f2937"/></linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#eef2ff"/></linearGradient>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#64748b"/></marker>
+  </defs>
+  <rect width="1200" height="720" rx="28" fill="url(#bg)"/>
+  <text x="600" y="62" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" font-weight="700" fill="#fff">OpenCode Portable Architecture</text>
+  <text x="600" y="96" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#cbd5e1">USB-local runtime • application • configuration • cache</text>
+
+  <rect x="55" y="145" width="1090" height="505" rx="24" fill="#111827" stroke="#475569"/>
+  <text x="90" y="185" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#e2e8f0">USB Drive / OpenCode-Portable</text>
+
+  <rect x="90" y="220" width="300" height="170" rx="18" fill="url(#card)"/>
+  <text x="240" y="260" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#111827">Launcher</text>
+  <text x="240" y="298" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#334155">opencode.bat</text>
+  <text x="240" y="325" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#334155">opencode.sh</text>
+  <text x="240" y="357" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#64748b">detects OS + CPU architecture</text>
+
+  <rect x="450" y="220" width="300" height="170" rx="18" fill="url(#card)"/>
+  <text x="600" y="260" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#111827">Portable Runtime</text>
+  <text x="600" y="300" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#334155">engine/node-win</text>
+  <text x="600" y="328" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#334155">engine/node-linux</text>
+  <text x="600" y="357" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#64748b">no host Node.js required</text>
+
+  <rect x="810" y="220" width="300" height="170" rx="18" fill="url(#card)"/>
+  <text x="960" y="260" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#111827">OpenCode</text>
+  <text x="960" y="300" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#334155">opt/opencode-win</text>
+  <text x="960" y="328" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#334155">opt/opencode-linux</text>
+  <text x="960" y="357" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#64748b">native platform package</text>
+
+  <line x1="390" y1="305" x2="450" y2="305" stroke="#94a3b8" stroke-width="3" marker-end="url(#arrow)"/>
+  <line x1="750" y1="305" x2="810" y2="305" stroke="#94a3b8" stroke-width="3" marker-end="url(#arrow)"/>
+
+  <rect x="90" y="435" width="1020" height="165" rx="18" fill="#0f172a" stroke="#475569"/>
+  <text x="600" y="475" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#e2e8f0">USB-local Data Isolation</text>
+  <text x="600" y="512" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="#cbd5e1">data/win or data/linux</text>
+  <text x="600" y="540" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" fill="#94a3b8">HOME • CONFIG • DATA • CACHE • TEMP • npm cache</text>
+  <text x="600" y="570" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#64748b">Environment variables are scoped to the launcher process</text>
+
+  <text x="600" y="688" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#94a3b8">Unofficial community project • not affiliated with upstream OpenCode</text>
+</svg>
