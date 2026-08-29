@@ -1,95 +1,191 @@
-# OpenCode Portable 🚀
+# Portable-Opencode ⚡
 
 <p align="center">
-  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux-111827?style=for-the-badge" alt="Platforms">
-  <img src="https://img.shields.io/badge/architecture-x64%20%7C%20ARM64-111827?style=for-the-badge" alt="Architecture">
-  <img src="https://img.shields.io/badge/runtime-Portable%20Node.js-111827?style=for-the-badge" alt="Portable Node.js">
-  <img src="https://img.shields.io/badge/license-MIT-111827?style=for-the-badge" alt="MIT License">
+  <img src="docs/architecture.svg" alt="Portable-Opencode architecture" width="900">
 </p>
-
-<p align="center"><strong>Carry your OpenCode environment on a USB drive.</strong></p>
-<p align="center">An unofficial portable distribution for Windows and Linux with a USB-local runtime, application, configuration, cache, and temporary workspace.</p>
 
 <p align="center">
-  <img src="docs/architecture.svg" alt="OpenCode Portable architecture" width="900">
+  <strong>Carry your AI coding environment with you.</strong><br>
+  A USB-first portable runtime for OpenCode on Windows and Linux.
 </p>
 
-> ⚠️ **Unofficial project.** This repository is not affiliated with or endorsed by the upstream OpenCode project.
+<p align="center">
+  <a href="https://github.com/YogendraChukka01/Portable-Opencode/actions"><img src="https://img.shields.io/github/actions/workflow/status/YogendraChukka01/Portable-Opencode/windows-smoke.yml?label=CI&style=flat-square" alt="CI"></a>
+  <img src="https://img.shields.io/badge/Windows-x64%20%7C%20ARM64-2563eb?style=flat-square" alt="Windows">
+  <img src="https://img.shields.io/badge/Linux-x64%20%7C%20ARM64-16a34a?style=flat-square" alt="Linux">
+  <img src="https://img.shields.io/badge/USB-Portable-7c3aed?style=flat-square" alt="USB Portable">
+  <img src="https://img.shields.io/badge/License-MIT-111827?style=flat-square" alt="MIT License">
+</p>
 
-## ✨ Highlights
+---
 
-- 🔌 **USB portable** — run from a removable drive without a normal system installation.
-- 🧰 **Private Node.js runtime** — the launcher manages its own Node.js runtime on the drive.
-- 🖥️ **Windows + Linux** — x64 and ARM64 detection.
-- 🐧 **glibc + musl Linux** — automatically selects the matching Linux package/runtime where an official portable runtime exists.
-- 🔐 **Integrity verification** — Node.js downloads are checked against the official SHA-256 manifest; OpenCode packages are checked against npm registry SRI.
-- 📦 **Native OpenCode binary** — the launcher calls the platform binary directly instead of relying on npm's generated `.bin` shim.
-- 🗂️ **USB-local data** — configuration, sessions, cache, npm cache, and temporary files are redirected to the portable directory.
-- 📌 **Version pinning** — set `OPENCODE_VERSION` when you need a reproducible OpenCode version.
-- 🧹 **No installer required** — no administrator/root installation is needed by the launcher itself.
+## What is Portable-Opencode?
 
-## ⚡ Quick Start
+**Portable-Opencode** packages the runtime and application environment needed to run OpenCode from a removable drive.
+
+The launcher keeps the runtime, OpenCode installation, configuration, cache, temporary files, and application data inside the portable directory instead of depending on a conventional host installation.
+
+### The goal
+
+> **Plug in → launch → code → unplug.**
+
+No global Node.js installation. No administrator/root installation required by the launcher itself. Your portable environment stays organized on the drive.
+
+---
+
+## ✨ Why Portable-Opencode?
+
+| Capability | Portable-Opencode |
+|---|---|
+| USB-first workflow | ✅ |
+| Host Node.js required | ❌ |
+| Windows | ✅ |
+| Linux | ✅ |
+| x64 | ✅ |
+| ARM64 | ✅ where native packages/runtime are available |
+| Linux musl x64 | ✅ |
+| Native OpenCode binary | ✅ |
+| USB-local configuration | ✅ |
+| USB-local cache/temp | ✅ |
+| Artifact integrity verification | ✅ |
+| Reproducible OpenCode version | ✅ with `OPENCODE_VERSION` |
+| Literal zero host traces | ❌ not claimed |
+
+---
+
+## 🚀 Quick Start
 
 ### Windows
 
-1. Copy `OpenCode-Portable/` to an exFAT or another writable USB filesystem.
-2. Connect the drive.
-3. Double-click `OpenCode-Portable\opencode.bat`.
-4. On first launch, the launcher downloads the correct Node.js runtime and OpenCode package to the drive.
+1. Copy `OpenCode-Portable/` to a writable USB drive.
+2. Open the folder.
+3. Run **`opencode.bat`**.
+4. The first run provisions the required runtime and OpenCode package.
+5. Start coding.
 
-Or from Command Prompt:
+From Command Prompt:
 
 ```bat
-E:
-cd E:\OpenCode-Portable
+cd /d E:\OpenCode-Portable
 opencode.bat
 ```
 
 ### Linux
 
 ```bash
-cd /media/$USER/OPENCODE/OpenCode-Portable
+cd /media/$USER/YOUR_USB/OpenCode-Portable
 chmod +x opencode.sh
 ./opencode.sh
 ```
 
-The first run requires internet access. Once the runtime and application are present, subsequent launches use the USB-local copies.
+The first provisioning run needs network access unless the required runtime and application packages are already present on the drive.
 
-## 🧱 Architecture
+---
+
+## 🧩 How it works
 
 ```text
-OpenCode-Portable/
-├── opencode.bat                 # Windows launcher
-├── opencode.sh                  # Linux launcher
-├── engine/
-│   ├── node-win/                # Windows portable Node.js
-│   ├── node-linux-glibc/        # Linux glibc Node.js
-│   └── node-linux-musl/         # Linux x64 musl Node.js
-├── opt/
-│   ├── opencode-win/            # Windows OpenCode package
-│   ├── opencode-linux-glibc/    # Linux glibc OpenCode package
-│   └── opencode-linux-musl/     # Linux x64 musl OpenCode package
-└── data/
-    ├── win/                     # Windows config/cache/temp
-    └── linux/                   # Linux config/cache/temp
+                         ┌─────────────────────┐
+                         │   USB Drive         │
+                         │  Portable-Opencode  │
+                         └──────────┬──────────┘
+                                    │
+                     ┌──────────────▼──────────────┐
+                     │          Launcher           │
+                     │  Windows .bat / Linux .sh  │
+                     └──────────────┬──────────────┘
+                                    │
+                ┌───────────────────┼───────────────────┐
+                │                   │                   │
+        ┌───────▼───────┐   ┌───────▼───────┐   ┌──────▼──────┐
+        │ Portable Node │   │ Native OpenCode│   │ USB-local   │
+        │    runtime    │   │    binary     │   │ data/cache  │
+        └───────────────┘   └───────────────┘   └─────────────┘
 ```
 
-<p align="center"><img src="docs/architecture.svg" alt="Detailed architecture diagram" width="900"></p>
+The launchers:
 
-### Runtime isolation
+1. Detect the host operating system and CPU architecture.
+2. Select the appropriate portable Node.js runtime.
+3. Resolve the platform-specific OpenCode package.
+4. Verify downloaded artifacts before installation.
+5. Install the application into the portable directory.
+6. Redirect relevant runtime/application paths to USB-local storage.
+7. Launch the native OpenCode executable directly.
 
-The launchers do not require a host-installed Node.js. Runtime files are stored under `engine/` on the USB drive.
+---
 
-### Application isolation
+## 📁 Project Structure
 
-OpenCode is installed under `opt/` using the platform-specific native package. The launcher resolves the native executable directly and does not intentionally invoke an OpenCode installation from the host `PATH`.
+```text
+Portable-Opencode/
+│
+├── OpenCode-Portable/
+│   ├── opencode.bat              # Windows launcher
+│   ├── opencode.sh               # Linux launcher
+│   │
+│   ├── engine/                   # Portable runtimes
+│   │   ├── node-win/
+│   │   ├── node-linux-glibc/
+│   │   └── node-linux-musl/
+│   │
+│   ├── opt/                      # OpenCode application packages
+│   │   ├── opencode-win/
+│   │   ├── opencode-linux-glibc/
+│   │   └── opencode-linux-musl/
+│   │
+│   └── data/                     # Portable application state
+│       ├── win/
+│       └── linux/
+│
+├── docs/
+│   ├── architecture.svg
+│   └── PORTABILITY.md
+│
+├── tests/
+│   └── verify.sh
+│
+└── .github/
+    └── workflows/
+```
 
-### Data isolation
+---
 
-The launchers redirect relevant environment variables to `data/`, including:
+## 🔒 Portable Data Isolation
 
-- `HOME` / `USERPROFILE`
-- `APPDATA` / `LOCALAPPDATA` on Windows
+Portable-Opencode redirects the relevant environment paths into the USB-local `data/` tree.
+
+### Windows
+
+```text
+data/win/
+├── home/
+├── config/
+├── share/
+├── cache/
+├── temp/
+├── npm-cache/
+└── logs/
+```
+
+### Linux
+
+```text
+data/linux/
+├── home/
+├── config/
+├── share/
+├── cache/
+├── temp/
+└── npm-cache/
+```
+
+The launchers configure paths such as:
+
+- `HOME`
+- `USERPROFILE`
+- `APPDATA`
+- `LOCALAPPDATA`
 - `XDG_CONFIG_HOME`
 - `XDG_DATA_HOME`
 - `XDG_CACHE_HOME`
@@ -98,63 +194,73 @@ The launchers redirect relevant environment variables to `data/`, including:
 - `TEMP` / `TMP` / `TMPDIR`
 - npm cache
 
-These variables are process-scoped and are not persisted as system environment variables by the launcher.
+These are configured for the launched process rather than installed as permanent system environment variables.
 
-## 🖥️ Compatibility
+---
 
-| Platform | CPU | libc/runtime | Status |
+## 🛡️ Integrity & Security
+
+Portable-Opencode verifies downloaded artifacts before using them.
+
+### Node.js verification
+
+The launcher:
+
+1. Resolves a Node.js release.
+2. Downloads the matching archive.
+3. Retrieves the official `SHASUMS256.txt` manifest.
+4. Requires a matching checksum entry.
+5. Calculates SHA-256 locally.
+6. Refuses extraction when the checksum does not match.
+
+### OpenCode verification
+
+The launcher:
+
+1. Resolves the platform-specific npm package.
+2. Reads the package's published `dist.integrity` value.
+3. Verifies the downloaded tarball using the declared SRI algorithm.
+4. Re-downloads a corrupted cached archive.
+5. Installs only after successful verification.
+
+**Never store API keys or provider credentials in a public repository.** Treat the USB drive as sensitive because it may contain sessions, configuration, credentials, and project data.
+
+---
+
+## 🖥️ Platform Support
+
+| Platform | Architecture | Runtime | Status |
 |---|---|---|---|
 | Windows 10+ | x64 | Windows | ✅ Supported |
-| Windows 10+ | ARM64 | Windows | ✅ Supported where the native package is available |
+| Windows 10+ | ARM64 | Windows | ✅ Supported when native package is available |
 | Linux | x64 | glibc | ✅ Supported |
 | Linux | ARM64 | glibc | ✅ Supported |
-| Linux | x64 | musl | ✅ Supported when the corresponding upstream packages are available |
-| Linux | ARM64 | musl | ❌ Not supported by the official portable Node.js runtime |
+| Linux | x64 | musl | ✅ Supported |
+| Linux | ARM64 | musl | ⚠️ Not supported by the standard portable Node.js runtime path |
 
-### Linux `noexec`
+Portable-Opencode intentionally fails with a clear message when a compatible official runtime cannot be provided rather than silently selecting an incompatible binary.
 
-Some removable drives are mounted with `noexec`. In that case Linux will refuse to execute Node.js/OpenCode from the drive.
+---
 
-Check the mount options:
+## 🐧 Linux `noexec` Drives
 
-```bash
-findmnt -no OPTIONS /media/$USER/OPENCODE
-```
+Some removable Linux filesystems are mounted with `noexec`. Executables on such a mount cannot run.
 
-If `noexec` is present, remount the filesystem with execution enabled if your system policy allows it:
+Check:
 
 ```bash
-sudo mount -o remount,exec /media/$USER/OPENCODE
+findmnt -no OPTIONS /media/$USER/YOUR_USB
 ```
 
-For a Linux-only portable setup, an executable Linux filesystem such as ext4 may be more appropriate than exFAT.
+If `noexec` is enabled, use a mount configuration that permits execution if your system policy allows it.
 
-## 🔐 Security & Integrity
+For Linux-only portable deployments, an executable Linux filesystem such as ext4 can be more suitable than exFAT.
 
-The installer treats downloaded artifacts as untrusted until verification succeeds.
+---
 
-### Node.js
+## 📌 Version Pinning
 
-1. Resolve a Node.js release from `nodejs.org`.
-2. Download the matching archive.
-3. Download the official `SHASUMS256.txt` manifest.
-4. Require the matching filename/checksum entry.
-5. Compare SHA-256 before extraction.
-
-A missing manifest, missing checksum, download error, or checksum mismatch causes installation to stop.
-
-### OpenCode
-
-1. Resolve the platform-specific package from the npm registry.
-2. Read its published `dist.integrity` value.
-3. Verify the cached/downloaded tarball using the declared SHA-512/SHA-256 SRI value.
-4. Only then install the package locally.
-
-A corrupted cached tarball is discarded and downloaded again.
-
-## 📌 Reproducible Versions
-
-By default the launcher follows the current OpenCode `latest` package. For a reproducible deployment, pin the version explicitly:
+The launcher can use the current OpenCode package by default, or you can pin a specific version for reproducible deployments.
 
 ### Linux
 
@@ -169,90 +275,191 @@ set OPENCODE_VERSION=YOUR_VERSION
 opencode.bat
 ```
 
-For a truly reproducible USB image, also keep the Node.js runtime already provisioned on the drive rather than resolving a new LTS release during installation.
+For maximum reproducibility, provision and retain a specific Node.js runtime on the USB drive as well.
+
+---
 
 ## 🌐 Network Requirements
 
-**First run:** internet access is required to obtain Node.js and OpenCode unless those artifacts are already provisioned on the drive.
+### First provisioning
 
-**Subsequent runs:** no download is performed while the required runtime/application is already present.
+Internet access is normally required to download:
 
-The project does not claim to make OpenCode itself offline-capable; provider APIs and other online services still require their own network access.
+- Node.js
+- OpenCode package
+- npm package metadata
 
-## 📂 Data Locations
+### Later launches
 
-| Data | Windows | Linux |
-|---|---|---|
-| Home | `data/win/home/` | `data/linux/home/` |
-| Config | `data/win/config/` | `data/linux/config/` |
-| Shared data | `data/win/share/` | `data/linux/share/` |
-| Cache | `data/win/cache/` | `data/linux/cache/` |
-| Temporary files | `data/win/temp/` | `data/linux/temp/` |
-| npm cache | `data/win/npm-cache/` | `data/linux/npm-cache/` |
+If the runtime and application are already present, the launcher does not need to download them again.
 
-Provider credentials and sessions should therefore be treated as sensitive data on the USB drive. Protect the drive and back it up securely.
+OpenCode's own AI providers, APIs, repositories, and other online services still require network connectivity when those services are used.
 
-## 🔄 Reset / Clean Reinstall
+---
 
-To reset only user data, remove the relevant `data/win/` or `data/linux/` directory.
+## 🧹 Reset & Reinstall
 
-To reinstall the application/runtime for one platform, remove that platform's `engine/` and `opt/` directories. The next launcher run will provision them again.
+### Reset user/application data
 
-For a complete reset, remove `engine/`, `opt/`, and `data/`.
+Delete the platform-specific `data/` directory:
 
-## 🧪 Verification
+```text
+data/win/
+data/linux/
+```
 
-The repository includes launcher scripts designed to fail safely on missing dependencies, unsupported architectures, failed downloads, and integrity mismatches.
+### Reinstall OpenCode
 
-Before release, run at minimum:
+Remove the relevant `opt/` directory and launch again.
+
+### Reinstall Node.js
+
+Remove the relevant `engine/` directory and launch again.
+
+### Complete reset
+
+Remove:
+
+```text
+engine/
+opt/
+data/
+```
+
+The next launch provisions the environment again.
+
+---
+
+## 🧪 Verification & CI
+
+The repository contains automated and static checks for the portable implementation.
+
+Basic shell verification:
+
+```bash
+bash -n OpenCode-Portable/opencode.sh
+bash tests/verify.sh
+```
+
+Archive verification:
 
 ```bash
 unzip -t Portable-Opencode-main.zip
-bash -n OpenCode-Portable/opencode.sh
 ```
 
-On Windows, validate the launcher on both x64 and ARM64 hardware/VMs where available. On Linux, test at least one glibc system and one musl system, plus an ARM64 environment if available.
+GitHub Actions provides Windows smoke testing and repository-level portability checks.
 
-> **Important:** Static verification cannot prove that every OpenCode release, Linux distribution, filesystem, antivirus configuration, or host policy will behave identically. Release testing should include real target environments.
+### Release testing matrix
 
-## 🕵️ About “Zero Traces”
+Before calling a release production-ready, test on:
 
-This project aims for **application-level data isolation**, not forensic invisibility.
+- Windows x64
+- Windows ARM64 where available
+- Linux x64 glibc
+- Linux ARM64 glibc
+- Linux x64 musl
+- A writable USB filesystem
+- A Linux `noexec` mount for the expected diagnostic path
 
-OpenCode and Node.js are directed to USB-local data and temporary paths by the launcher. However, the host operating system, antivirus/EDR software, shell, filesystem, or network stack may still create independent logs, metadata, execution records, DNS records, or other traces.
+Static checks are useful safeguards but cannot replace execution on real target environments.
 
-Therefore this project does **not** guarantee zero host traces.
+---
 
-## ⚖️ Licensing & Attribution
+## 🔍 Troubleshooting
 
-This is an unofficial portable distribution built around the upstream OpenCode project and its published packages.
+### `opencode.bat` does not start
 
-- Upstream project: https://github.com/anomalyco/opencode
+Check:
+
+- USB drive is writable.
+- Windows is supported.
+- CPU architecture is supported.
+- Security software is not blocking execution.
+- The drive path does not use an unsupported filesystem configuration.
+
+### Linux says `Permission denied`
+
+Check for `noexec`:
+
+```bash
+findmnt -no OPTIONS /media/$USER/YOUR_USB
+```
+
+### Download or integrity failure
+
+Remove the incomplete/corrupted cached artifact and run the launcher again. The launcher will verify the replacement before installation.
+
+### OpenCode cannot be found after installation
+
+Run the launcher again and inspect the `opt/` directory. If the problem persists, report the OS, architecture, libc, launcher output, and OpenCode version without including secrets.
+
+---
+
+## ⚠️ Important Limitations
+
+Portable-Opencode provides **application-level portability and data isolation**. It does **not** provide forensic invisibility or guarantee that the host computer leaves no traces.
+
+The host OS, antivirus/EDR, filesystem, shell, USB subsystem, DNS resolver, network infrastructure, or security policies may independently create logs, metadata, execution records, or other traces.
+
+The project also does not bypass organizational security controls or host execution restrictions.
+
+---
+
+## 🧭 Design Principles
+
+Portable-Opencode follows a few simple principles:
+
+- **Portable by default** — runtime and application live with the project.
+- **Fail closed** — failed integrity checks stop installation.
+- **Native execution** — use the platform's native OpenCode binary.
+- **Explicit compatibility** — don't pretend unsupported combinations work.
+- **Local state** — keep application state under the portable data tree.
+- **Reproducible when pinned** — support explicit OpenCode versions.
+- **Transparent limitations** — portability is not the same as invisibility.
+
+---
+
+## 📜 Licensing
+
+Portable-Opencode is distributed under the license included in this repository.
+
+OpenCode, Node.js, npm, and other third-party components remain subject to their respective licenses and distribution terms. Review upstream licensing requirements before redistributing bundled artifacts.
+
+### Project links
+
+- OpenCode: https://github.com/anomalyco/opencode
 - OpenCode documentation: https://opencode.ai/docs/
 - Node.js: https://nodejs.org/
 - npm: https://www.npmjs.com/
 
-Third-party components retain their respective licenses. See `LICENSE` and upstream licensing information before redistribution.
+---
 
 ## 🤝 Contributing
 
-Bug reports and improvements are welcome. When reporting a portability problem, include:
+Contributions, bug reports, compatibility reports, and improvements are welcome.
+
+When reporting a portability issue, include:
 
 - Operating system and version
 - CPU architecture
-- Linux libc (`glibc` or `musl`) where applicable
-- USB filesystem and mount options
-- Launcher output/error message
-- OpenCode version, if known
+- Linux libc (`glibc` / `musl`), if applicable
+- USB filesystem
+- Mount options, if relevant
+- Launcher output
+- OpenCode version
 
-Do **not** include API keys, provider credentials, session secrets, or personal data in issues.
+**Never post API keys, tokens, credentials, session files, or personal data in issues.**
 
-## 👤 Built by Yogi
+---
+
+## ⭐ Project
+
+If Portable-Opencode is useful to you, consider starring the repository and sharing compatibility feedback.
 
 <p align="center">
-  <strong>Build. Learn. Ship. Iterate.</strong>
+  <strong>Portable development. Your environment. Your drive.</strong>
 </p>
 
 <p align="center">
-  Unofficial portable OpenCode tooling for developers who want their environment with them.
+  Built by <strong>Yogi</strong> • Portable-Opencode
 </p>
