@@ -1,38 +1,11 @@
 #!/usr/bin/env bash
 # ==============================================================
-#  OpenCode Portable Launcher (Linux)  -- v2 (bugfixed)
-#  Runs entirely off this drive. Never touches, reads, or runs
-#  any OpenCode that may already be installed on the host
-#  machine. All config / sessions / credentials / cache / temp
-#  files are redirected onto the drive itself.
-#
-#  Fixes vs v1:
-#   - Node "LTS" version lookup no longer breaks on nodejs.org's
-#     minified index.json (old grep/sed one-liner could silently
-#     grab the wrong version, or abort the whole script under
-#     `set -o pipefail` due to a SIGPIPE from `grep -m1`).
-#   - Detects CPU architecture (x64 / arm64) instead of hardcoding
-#     x64, so this now works on ARM boards / Graviton / Asahi etc.
-#   - Verifies the downloaded Node.js tarball against Node's own
-#     published SHA256SUMS before extracting it.
-#   - Calls the real compiled OpenCode binary directly instead of
-#     going through the npm-generated .bin/opencode shim (faster
-#     startup, one less moving part).
-#   - Checks for required host tools (curl, tar) up front with a
-#     clear error instead of failing deep inside the script.
-#   - `df --output=target` (GNU-only) no longer crashes the noexec
-#     check on busybox/Alpine-style `df`.
+#  OpenCode Portable Launcher (Linux) -- hardened
 # ==============================================================
 set -euo pipefail
 
-# --- ROOT = the folder this script lives in (works on any mount point) ---
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# --------------------------------------------------------------
-# STEP 0 - Make sure the tools this script depends on exist.
-# Failing fast here with a clear message beats a cryptic error
-# 40 lines deep into a download.
-# --------------------------------------------------------------
 missing=()
 for cmd in curl tar openssl sha256sum; do
     command -v "$cmd" >/dev/null 2>&1 || missing+=("$cmd")
@@ -43,104 +16,104 @@ if [ "${#missing[@]}" -gt 0 ]; then
     exit 1
 fi
 
-# --------------------------------------------------------------
-# Detect CPU architecture. The old script silently assumed x64,
-# which fails outright on ARM (Raspberry Pi, Graviton, etc).
-# --------------------------------------------------------------
 case "$(uname -m)" in
     x86_64|amd64)   NODE_ARCH="x64";   OC_ARCH="x64"   ;;
     aarch64|arm64)  NODE_ARCH="arm64"; OC_ARCH="arm64" ;;
     *)
         echo "ERROR: unsupported CPU architecture '$(uname -m)'."
-        echo "OpenCode Portable only ships Node.js/OpenCode builds for x64 and arm64 Linux."
+        echo "OpenCode Portable supports x64 and arm64 Linux builds."
         exit 1
         ;;
 esac
 
-ENGINE_DIR="$ROOT/engine/node-linux"
+# Detect musl robustly. Official Node.js portable musl archives are
+# currently available for Linux x64, but not Linux arm64. Fail clearly
+# instead of downloading a URL that cannot exist.
+if ldd --version 2>&1 | grep -qi musl || compgen -G '/lib/ld-musl-*' >/dev/null 2>&1; then
+    LIBC="musl"
+else
+    LIBC="glibc"
+fi
+if [ "$LIBC" = "musl" ] && [ "$NODE_ARCH" != "x64" ]; then
+    echo "ERROR: Linux ARM64 + musl is not supported by the official portable Node.js runtime."
+    echo "Use a glibc-based ARM64 Linux system, or provide a compatible Node.js runtime yourself."
+    exit 1
+fi
+
+ENGINE_DIR="$ROOT/engine/node-linux-${LIBC}"
 NODE_BIN="$ENGINE_DIR/bin/node"
 NPM_CMD="$ENGINE_DIR/bin/npm"
+APP_DIR="$ROOT/opt/opencode-linux-${LIBC}"
 
-APP_DIR="$ROOT/opt/opencode-linux"
-
-# Locate the compiled OpenCode binary anywhere under the installed npm
-# tree. npm hoists platform packages (opencode-linux-<arch>) to the
-# top-level node_modules, but older layouts nested them under
-# opencode-ai/node_modules, and --no-bin-links means the .bin shim is
-# absent -- so we search rather than trust a single hard-coded path.
 locate_opencode() {
     local cand
     for cand in \
-        "$APP_DIR/node_modules/opencode-ai/node_modules/opencode-linux-${OC_ARCH}/bin/opencode" \
+        "$APP_DIR/node_modules/opencode-linux-${OC_ARCH}-${LIBC}/bin/opencode" \
+        "$APP_DIR/node_modules/opencode-ai/node_modules/opencode-linux-${OC_ARCH}-${LIBC}/bin/opencode" \
         "$APP_DIR/node_modules/opencode-linux-${OC_ARCH}/bin/opencode" \
-        "$APP_DIR/node_modules/opencode-ai/bin/opencode.exe" \
-        "$APP_DIR/node_modules/.bin/opencode" ; do
+        "$APP_DIR/node_modules/opencode-ai/node_modules/opencode-linux-${OC_ARCH}/bin/opencode" \
+        "$APP_DIR/node_modules/opencode-ai/bin/opencode" \
+        "$APP_DIR/node_modules/.bin/opencode"; do
         [ -x "$cand" ] && { printf '%s' "$cand"; return 0; }
     done
-    # Last resort: find any matching platform binary in the tree.
-    find "$APP_DIR/node_modules" -type f -path "*/opencode-linux-${OC_ARCH}/bin/opencode" 2>/dev/null | head -1
+    find "$APP_DIR/node_modules" -type f \
+        \( -path "*/opencode-linux-${OC_ARCH}-${LIBC}/bin/opencode" -o \
+           -path "*/opencode-linux-${OC_ARCH}/bin/opencode" \) 2>/dev/null | head -1
 }
 
-# --------------------------------------------------------------
-# Verify a downloaded tarball against an npm "Subresource Integrity"
-# (SRI) string (e.g. "sha512-<base64>"). This is the exact same
-# integrity scheme npm uses to validate every package it installs, so
-# we fail fast on corruption/tampering before handing the bytes to npm.
-# --------------------------------------------------------------
 verify_sri() {
     local file="$1" sri="$2"
     local alg="${sri%%-*}" expect_b64="${sri#*-}" actual
     case "$alg" in
         sha512) actual="$(openssl dgst -sha512 -binary "$file" | openssl base64 -A)" ;;
         sha256) actual="$(openssl dgst -sha256 -binary "$file" | openssl base64 -A)" ;;
-        *) echo "ERROR: unsupported integrity algorithm '$alg'."; return 1 ;;
+        *) return 1 ;;
     esac
     [ "$actual" = "$expect_b64" ]
 }
 
-# --------------------------------------------------------------
-# Resolve the exact OpenCode package version from the npm registry,
-# download its tarball, and verify its SHA-512 SRI. The OpenCode
-# version can be pinned for reproducibility via $OPENCODE_VERSION
-# (e.g. OPENCODE_VERSION=1.2.3 ./opencode.sh); otherwise "latest" is
-# used. The verified tarball is then installed locally by npm (which
-# re-verifies it), keeping the install deterministic and tamper-evident.
-# --------------------------------------------------------------
 resolve_opencode() {
-    local pkg="opencode-linux-${OC_ARCH}"
+    local pkg="opencode-linux-${OC_ARCH}-${LIBC}"
     local ver_spec="${OPENCODE_VERSION:-latest}"
-    local meta tgz
+    local meta tgz integrity tarball
     OPENCODE_TGZ=""
+
     if ! meta="$(curl -fsSL "https://registry.npmjs.org/${pkg}/${ver_spec}")"; then
-        echo "ERROR: could not reach the npm registry to resolve ${pkg}@${ver_spec}."
+        echo "ERROR: could not reach npm to resolve ${pkg}@${ver_spec}."
         return 1
     fi
+
     OPENCODE_VER="$(printf '%s' "$meta" | grep -o '"version":"[^"]*"' | head -1 | sed -E 's/"version":"([^"]*)"/\1/')"
-    local integrity tarball
     integrity="$(printf '%s' "$meta" | grep -o '"integrity":"[^"]*"' | head -1 | sed -E 's/"integrity":"([^"]*)"/\1/')"
     tarball="$(printf '%s' "$meta" | grep -o '"tarball":"[^"]*"' | head -1 | sed -E 's/"tarball":"([^"]*)"/\1/')"
-    if [ -z "$OPENCODE_VER" ] || [ -z "$tarball" ]; then
-        echo "ERROR: could not parse OpenCode package metadata from the npm registry."
+
+    if [ -z "$OPENCODE_VER" ] || [ -z "$integrity" ] || [ -z "$tarball" ]; then
+        echo "ERROR: incomplete npm metadata for ${pkg}@${ver_spec}."
         return 1
     fi
-    echo "      Resolved OpenCode $OPENCODE_VER ($OC_ARCH) ..."
+
+    echo "      Resolved OpenCode $OPENCODE_VER ($OC_ARCH / $LIBC) ..."
     tgz="$TEMP_DIR/opencode-${OPENCODE_VER}.tgz"
-    if [ ! -f "$tgz" ] || ! verify_sri "$tgz" "$integrity" 2>/dev/null; then
-        curl -fsSL "$tarball" -o "$tgz"
-    fi
-    if [ -n "$integrity" ]; then
-        echo "      Verifying package integrity (SHA-512) ..."
-        if ! verify_sri "$tgz" "$integrity"; then
-            echo "ERROR: OpenCode package tarball integrity mismatch -- possible corruption or tampering. Aborting."
+
+    if [ -f "$tgz" ] && verify_sri "$tgz" "$integrity" 2>/dev/null; then
+        echo "      Cached package integrity OK."
+    else
+        rm -f "$tgz"
+        if ! curl -fsSL "$tarball" -o "$tgz"; then
+            echo "ERROR: failed to download the OpenCode package tarball."
             rm -f "$tgz"
             return 1
         fi
-        echo "      Integrity OK."
-    else
-        echo "WARNING: no integrity info in registry metadata; skipping verification."
     fi
+
+    echo "      Verifying package integrity ..."
+    if ! verify_sri "$tgz" "$integrity"; then
+        echo "ERROR: OpenCode package integrity mismatch -- possible corruption or tampering."
+        rm -f "$tgz"
+        return 1
+    fi
+    echo "      Integrity OK."
     OPENCODE_TGZ="$tgz"
-    return 0
 }
 
 DATA_DIR="$ROOT/data/linux"
@@ -154,15 +127,10 @@ NPMCACHE_DIR="$DATA_DIR/npm-cache"
 mkdir -p "$HOME_DIR" "$CONFIG_DIR" "$SHARE_DIR" "$CACHE_DIR" "$TEMP_DIR" "$NPMCACHE_DIR" "$APP_DIR"
 
 echo
-echo "  OpenCode Portable (Linux / $NODE_ARCH)"
+echo "  OpenCode Portable (Linux / $NODE_ARCH / $LIBC)"
 echo "  Running from: $ROOT"
 echo
 
-# --------------------------------------------------------------
-# Quick sanity check: some distros auto-mount removable/exFAT
-# drives with the "noexec" flag, which blocks running binaries
-# straight off the drive. Catch that early with a clear message.
-# --------------------------------------------------------------
 TESTFILE="$ROOT/.exec_test"
 if ! { echo '#!/bin/sh' > "$TESTFILE" && chmod +x "$TESTFILE"; }; then
     echo "ERROR: could not write a test file to $ROOT (drive may be read-only)."
@@ -171,140 +139,97 @@ if ! { echo '#!/bin/sh' > "$TESTFILE" && chmod +x "$TESTFILE"; }; then
 fi
 if ! "$TESTFILE" >/dev/null 2>&1; then
     rm -f "$TESTFILE"
-    # `df --output=target` is a GNU coreutils-ism; busybox df (Alpine etc.)
-    # doesn't support it, so fall back gracefully instead of dying here.
-    if MOUNTPOINT="$(df --output=target "$ROOT" 2>/dev/null | tail -1)" && [ -n "$MOUNTPOINT" ]; then
-        :
-    else
+    if MOUNTPOINT="$(df --output=target "$ROOT" 2>/dev/null | tail -1)" && [ -n "$MOUNTPOINT" ]; then :; else
         MOUNTPOINT="$(df "$ROOT" 2>/dev/null | tail -1 | awk '{print $NF}')"
     fi
-    echo "ERROR: This drive appears to be mounted with the 'noexec' option,"
-    echo "which stops any program (including Node.js/OpenCode) from running"
-    echo "directly off it."
-    echo
-    echo "Fix by remounting with exec allowed, e.g.:"
+    echo "ERROR: This drive appears to be mounted with 'noexec'."
+    echo "Remount it with execution enabled if your system policy allows it:"
     echo "    sudo mount -o remount,exec \"$MOUNTPOINT\""
-    echo
-    echo "(If that keeps happening, reformat this drive/partition as ext4"
-    echo "for Linux use - see README.txt.)"
     exit 1
 fi
 rm -f "$TESTFILE"
 
-# --------------------------------------------------------------
-# STEP 1 - Portable Node.js runtime (only downloaded once)
-# --------------------------------------------------------------
 if [ ! -x "$NODE_BIN" ]; then
     echo "[1/3] No portable Node.js runtime found. Downloading it now..."
     TMP_TAR="$TEMP_DIR/node-linux.tar.xz"
     TMP_EXTRACT="$TEMP_DIR/node-extract"
+    INDEX_JSON="$TEMP_DIR/node-index.json"
+    NORMALIZED="$TEMP_DIR/node-index-normalized.txt"
+    SHASUMS="$TEMP_DIR/SHASUMS256.txt"
     rm -rf "$TMP_EXTRACT"
     mkdir -p "$TMP_EXTRACT"
 
-    # --- Resolve the current LTS version number ----------------
-    # NOTE: nodejs.org/dist/index.json is shipped minified (no
-    # guaranteed newlines between records), so a plain `grep -m1`
-    # over it can silently match across record boundaries and grab
-    # the wrong version. We normalize it to one JSON object per
-    # line first, which makes the parse reliable regardless of how
-    # nodejs.org happens to format the file, and we save it to a
-    # file instead of piping curl straight into grep so a `head`/
-    # `-m1`-style early-exit can't SIGPIPE curl and trip `set -o
-    # pipefail`.
-    INDEX_JSON="$TEMP_DIR/node-index.json"
     if ! curl -fsSL "https://nodejs.org/dist/index.json" -o "$INDEX_JSON"; then
-        echo "ERROR: could not reach nodejs.org to look up the current Node.js version."
-        echo "Check your internet connection and try again."
+        echo "ERROR: could not reach nodejs.org to resolve Node.js."
         exit 1
     fi
 
-    # Always resolve the LTS version with a self-contained text parse. We
-    # deliberately do NOT shell out to any Node.js that may happen to be
-    # installed on the host: this launcher's whole point is to be
-    # independent of the host, and a broken/old host `node` could otherwise
-    # hand back a wrong version. The index is minified, so normalize to one
-    # JSON object per line first, then take the first record whose "lts"
-    # field is a (non-false) string.
-    NORMALIZED="$TEMP_DIR/node-index-normalized.txt"
     sed 's/},{/}\n{/g' "$INDEX_JSON" > "$NORMALIZED"
     VER="$(grep -m1 '"lts":[[:space:]]*"' "$NORMALIZED" | sed -E 's/.*"version":"([^"]+)".*/\1/' || true)"
     if [ -z "$VER" ]; then
-        VER="$(grep -m1 '"version"' "$NORMALIZED" | sed -E 's/.*"version":"([^"]+)".*/\1/' || true)"
-    fi
-    if [ -z "$VER" ]; then
-        echo "ERROR: could not determine the current Node.js LTS version from nodejs.org."
+        echo "ERROR: could not determine the current Node.js LTS version."
         exit 1
     fi
-    echo "      Downloading Node.js $VER ($NODE_ARCH) ..."
 
-    NODE_TARBALL="node-${VER}-linux-${NODE_ARCH}.tar.xz"
-    curl -fsSL "https://nodejs.org/dist/${VER}/${NODE_TARBALL}" -o "$TMP_TAR"
-
-    # --- Verify integrity against Node's published checksums ---
-    # Best-effort: if the checksums file can't be fetched or parsed,
-    # warn and continue rather than hard-failing a portable installer
-    # over a transient issue - but if we DO get a checksum and it
-    # doesn't match, we stop, since that indicates real corruption
-    # or a tampered download.
-    SHASUMS="$TEMP_DIR/SHASUMS256.txt"
-    if curl -fsSL "https://nodejs.org/dist/${VER}/SHASUMS256.txt" -o "$SHASUMS" 2>/dev/null; then
-        EXPECTED="$(grep " ${NODE_TARBALL}\$" "$SHASUMS" | awk '{print $1}' || true)"
-        if [ -n "$EXPECTED" ]; then
-            ACTUAL="$(sha256sum "$TMP_TAR" | awk '{print $1}')"
-            if [ "$EXPECTED" != "$ACTUAL" ]; then
-                echo "ERROR: checksum mismatch on downloaded Node.js tarball."
-                echo "Expected: $EXPECTED"
-                echo "Actual:   $ACTUAL"
-                echo "The download may be corrupted or tampered with. Aborting."
-                rm -f "$TMP_TAR"
-                exit 1
-            fi
-            echo "      Checksum OK."
-        fi
+    if [ "$LIBC" = "musl" ]; then
+        NODE_TARBALL="node-${VER}-linux-${NODE_ARCH}-musl.tar.xz"
+    else
+        NODE_TARBALL="node-${VER}-linux-${NODE_ARCH}.tar.xz"
     fi
+
+    echo "      Downloading Node.js $VER ($NODE_ARCH / $LIBC) ..."
+    if ! curl -fsSL "https://nodejs.org/dist/${VER}/${NODE_TARBALL}" -o "$TMP_TAR"; then
+        echo "ERROR: could not download ${NODE_TARBALL}."
+        exit 1
+    fi
+
+    if ! curl -fsSL "https://nodejs.org/dist/${VER}/SHASUMS256.txt" -o "$SHASUMS"; then
+        echo "ERROR: could not download Node.js checksum manifest."
+        rm -f "$TMP_TAR"
+        exit 1
+    fi
+
+    EXPECTED="$(grep " ${NODE_TARBALL}\$" "$SHASUMS" | awk '{print $1}' || true)"
+    if [ -z "$EXPECTED" ]; then
+        echo "ERROR: checksum entry for ${NODE_TARBALL} was not found."
+        rm -f "$TMP_TAR"
+        exit 1
+    fi
+    ACTUAL="$(sha256sum "$TMP_TAR" | awk '{print $1}')"
+    if [ "$EXPECTED" != "$ACTUAL" ]; then
+        echo "ERROR: Node.js checksum mismatch."
+        echo "Expected: $EXPECTED"
+        echo "Actual:   $ACTUAL"
+        rm -f "$TMP_TAR"
+        exit 1
+    fi
+    echo "      Checksum OK."
 
     echo "      Extracting..."
     tar -xf "$TMP_TAR" -C "$TMP_EXTRACT"
     INNER="$(find "$TMP_EXTRACT" -mindepth 1 -maxdepth 1 -type d | head -1)"
+    if [ -z "$INNER" ]; then
+        echo "ERROR: Node.js archive extracted without a top-level directory."
+        exit 1
+    fi
     rm -rf "$ENGINE_DIR"
-    # `mv` won't create intermediate directories, so make sure the
-    # parent (engine/) exists before moving the extracted node folder
-    # into it. This matters on a first run where nothing is set up yet.
     mkdir -p "$(dirname "$ENGINE_DIR")"
     mv "$INNER" "$ENGINE_DIR"
-    rm -rf "$TMP_TAR" "$TMP_EXTRACT" "$INDEX_JSON" "$SHASUMS"
+    rm -rf "$TMP_TAR" "$TMP_EXTRACT" "$INDEX_JSON" "$NORMALIZED" "$SHASUMS"
     echo "      Done."
 else
     echo "[1/3] Portable Node.js runtime found. OK."
 fi
 
-# --------------------------------------------------------------
-# STEP 2 - OpenCode itself (only installed once, onto the drive)
-# --------------------------------------------------------------
 if [ -z "$(locate_opencode)" ]; then
-    echo "[2/3] OpenCode is not yet installed. Resolving + verifying package now..."
+    echo "[2/3] OpenCode is not yet installed. Resolving + verifying package..."
     export PATH="$ENGINE_DIR/bin:$PATH"
     export npm_config_cache="$NPMCACHE_DIR"
-    # Install only the platform-specific OpenCode package directly instead
-    # of the opencode-ai meta package. The meta package depends on every
-    # platform variant (linux/win/macos x x64/arm64 x baseline/musl/...),
-    # so `npm install opencode-ai` downloads several ~190 MB binaries and
-    # resolves metadata for all of them -- needlessly slow. Installing just
-    # opencode-linux-<arch> grabs the single binary we need.
-    # --no-bin-links: skip npm's generated .bin/opencode wrapper. We call
-    # the real compiled binary ourselves (see below), so we don't need it,
-    # and skipping it avoids a class of symlink/shim permission issues.
-    # The tarball is first resolved from the registry and verified against
-    # its published SHA-512 integrity (see resolve_opencode) so the install
-    # is deterministic (pin via $OPENCODE_VERSION) and tamper-evident.
-    if ! resolve_opencode; then
-        exit 1
-    fi
+    resolve_opencode
     "$NPM_CMD" install "$OPENCODE_TGZ" --prefix "$APP_DIR" --no-fund --no-audit --no-bin-links --loglevel=error
     printf '%s\n' "$OPENCODE_VER" > "$APP_DIR/OPENCODE_VERSION"
     if [ -z "$(locate_opencode)" ]; then
-        echo
-        echo "ERROR: OpenCode installation failed. Check your internet connection and try again."
+        echo "ERROR: OpenCode installation completed without a runnable binary."
         exit 1
     fi
     echo "      OpenCode $OPENCODE_VER installed successfully."
@@ -312,22 +237,14 @@ else
     echo "[2/3] OpenCode already installed. OK."
 fi
 
-# Resolve the real compiled binary (npm may hoist it to the top-level
-# node_modules or nest it under opencode-ai -- locate_opencode handles both).
 OPENCODE_BIN="$(locate_opencode)"
 if [ -z "$OPENCODE_BIN" ]; then
-    echo "ERROR: could not locate the OpenCode binary after installation."
+    echo "ERROR: could not locate the OpenCode binary."
     exit 1
 fi
 
-# --------------------------------------------------------------
-# STEP 3 - Launch OpenCode, fully sandboxed to the drive.
-# These environment variables only exist for THIS process tree.
-# Nothing persists on the host once the terminal is closed.
-# --------------------------------------------------------------
 echo "[3/3] Launching OpenCode (portable)..."
 echo
-
 export PATH="$ENGINE_DIR/bin:$PATH"
 export HOME="$HOME_DIR"
 export XDG_CONFIG_HOME="$CONFIG_DIR"
@@ -338,10 +255,6 @@ export XDG_RUNTIME_DIR="$TEMP_DIR/runtime"
 export OPENCODE_CONFIG_DIR="$CONFIG_DIR/opencode"
 export TMPDIR="$TEMP_DIR"
 export npm_config_cache="$NPMCACHE_DIR"
-
 mkdir -p "$OPENCODE_CONFIG_DIR" "$XDG_RUNTIME_DIR"
-
-# Call the drive's own copy of OpenCode by its exact, absolute path.
-# This deliberately ignores any OpenCode that may be on the host's PATH.
 cd "$ROOT"
 exec "$OPENCODE_BIN" "$@"
