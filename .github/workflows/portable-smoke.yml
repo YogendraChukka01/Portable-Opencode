@@ -1,0 +1,30 @@
+name: Portable launcher smoke tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  linux-static:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify launcher and repository
+        run: bash tests/verify.sh
+
+  windows-static:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify launcher files
+        shell: pwsh
+        run: |
+          if (-not (Test-Path 'OpenCode-Portable/opencode.bat')) { throw 'Windows launcher missing' }
+          if (-not (Test-Path 'OpenCode-Portable/opencode.sh')) { throw 'Linux launcher missing' }
+      - name: Check critical launcher settings
+        shell: cmd
+        run: |
+          findstr /C:"OPENCODE_VERSION" OpenCode-Portable\opencode.bat >nul
+          findstr /C:"SHASUMS256.txt" OpenCode-Portable\opencode.bat >nul
